@@ -1,0 +1,52 @@
+{
+  "name": "stock-management-desktop",
+  "version": "1.0.0",
+  "description": "Application de gestion de stock - Version Desktop avec architecture modulaire",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite",
+    "lint": "eslint src --ext .js,.jsx",
+    "lint:fix": "eslint src --ext .js,.jsx --fix",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "analyze": "npx vite-bundle-analyzer",
+    "clean": "rm -rf dist node_modules && npm install"
+  },
+  "keywords": [
+    "stock-management",
+    "inventory",
+    "react",
+    "material-ui",
+    "desktop-app",
+    "erp"
+  ],
+  "author": "Mahfoudh Stock Management Team",
+  "license": "MIT",
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "axios": "^1.6.2",
+    "@mui/material": "^5.15.0",
+    "@mui/icons-material": "^5.15.0",
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "react-router-dom": "^6.8.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mahfoudh-stock/desktop-app.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mahfoudh-stock/desktop-app/issues"
+  },
+  "homepage": "https://github.com/mahfoudh-stock/desktop-app#readme"
+}
