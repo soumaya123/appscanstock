@@ -20,6 +20,7 @@ import {
   Chip,
   Tooltip,
   Button,
+  Grid,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -27,10 +28,11 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  Padding,
 } from '@mui/icons-material';
 
 function ProductsTable({ 
-  products, 
+  products = [],
   onEdit, 
   onDelete, 
   onView, 
@@ -70,7 +72,8 @@ function ProductsTable({
   };
 
   return (
-    <Paper sx={{ borderRadius: 2 }}>
+    <Grid  xs={12} md={12} style={{ padding: "50px" }}>
+    <Paper sx={{ borderRadius: 2 }} >
       <Box p={3}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h6" fontWeight="bold">
@@ -240,6 +243,7 @@ function ProductsTable({
         )}
       </Box>
     </Paper>
+    </Grid>
   );
 }
 

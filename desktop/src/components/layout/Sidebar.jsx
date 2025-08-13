@@ -77,7 +77,7 @@ function Sidebar({ open, currentView, onViewChange }) {
         </Box>
       </Toolbar>
       <Divider />
-      
+
       <List sx={{ px: 1 }}>
         {menuItems.map((item) => (
           <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
@@ -92,27 +92,21 @@ function Sidebar({ open, currentView, onViewChange }) {
                   '&:hover': {
                     bgcolor: 'primary.dark',
                   },
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
+                  '& .MuiListItemIcon-root': { color: 'white' },
                 },
                 '&:hover': {
                   bgcolor: 'primary.light',
                   color: 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
+                  '& .MuiListItemIcon-root': { color: 'white' },
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: '0.875rem',
-                  fontWeight: currentView === item.id ? 'bold' : 'medium'
+                  fontWeight: currentView === item.id ? 'bold' : 'medium',
                 }}
               />
             </ListItemButton>
@@ -121,8 +115,8 @@ function Sidebar({ open, currentView, onViewChange }) {
       </List>
 
       <Box sx={{ flexGrow: 1 }} />
-      
       <Divider sx={{ mx: 2 }} />
+
       <List sx={{ px: 1, pb: 2 }}>
         {settingsItems.map((item) => (
           <ListItem key={item.id} disablePadding sx={{ mb: 0.5 }}>
@@ -134,30 +128,22 @@ function Sidebar({ open, currentView, onViewChange }) {
                 '&.Mui-selected': {
                   bgcolor: 'primary.main',
                   color: 'white',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '& .MuiListItemIcon-root': { color: 'white' },
                 },
                 '&:hover': {
                   bgcolor: 'primary.light',
                   color: 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: 'white',
-                  },
+                  '& .MuiListItemIcon-root': { color: 'white' },
                 },
               }}
             >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: '0.875rem',
-                  fontWeight: currentView === item.id ? 'bold' : 'medium'
+                  fontWeight: currentView === item.id ? 'bold' : 'medium',
                 }}
               />
             </ListItemButton>

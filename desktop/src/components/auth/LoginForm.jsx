@@ -17,15 +17,16 @@ function LoginForm({ onLogin }) {
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
+  console.log("username",username,"pwd",password)
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
+   
     try {
       await authService.login(username, password);
-      onLogin();
+
+      await onLogin({ username, password });
     } catch (err) {
       setError('Erreur de connexion. Vérifiez vos identifiants.');
       console.error('Erreur de connexion:', err);

@@ -7,14 +7,9 @@ import {
   TextField,
   Button,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Typography,
   Box,
   Autocomplete,
-  Chip,
 } from '@mui/material';
 import { Inventory as EntryIcon } from '@mui/icons-material';
 
@@ -22,11 +17,12 @@ function EntryDialog({
   open, 
   onClose, 
   onSubmit, 
-  entry, 
+  entry = {}, 
   onChange, 
   products = [],
   loading = false 
 }) {
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(e);
@@ -40,9 +36,7 @@ function EntryDialog({
       onClose={onClose} 
       maxWidth="lg" 
       fullWidth
-      PaperProps={{
-        sx: { borderRadius: 2 }
-      }}
+      PaperProps={{ sx: { borderRadius: 2 } }}
     >
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>
@@ -82,7 +76,7 @@ function EntryDialog({
                 required
                 fullWidth
                 label="Numéro de Réception"
-                value={entry.receptionNumber}
+                value={entry.receptionNumber || ''}
                 onChange={(e) => onChange({...entry, receptionNumber: e.target.value})}
                 margin="normal"
                 placeholder="REC-2024-001"
@@ -94,7 +88,7 @@ function EntryDialog({
               <TextField
                 fullWidth
                 label="Numéro Carnet"
-                value={entry.carnetNumber}
+                value={entry.carnetNumber || ''}
                 onChange={(e) => onChange({...entry, carnetNumber: e.target.value})}
                 margin="normal"
                 placeholder="CAR-001"
@@ -106,7 +100,7 @@ function EntryDialog({
               <TextField
                 fullWidth
                 label="Numéro Facture"
-                value={entry.invoiceNumber}
+                value={entry.invoiceNumber || ''}
                 onChange={(e) => onChange({...entry, invoiceNumber: e.target.value})}
                 margin="normal"
                 placeholder="FAC-2024-001"
@@ -118,7 +112,7 @@ function EntryDialog({
               <TextField
                 fullWidth
                 label="Numéro Packing Liste"
-                value={entry.packingListNumber}
+                value={entry.packingListNumber || ''}
                 onChange={(e) => onChange({...entry, packingListNumber: e.target.value})}
                 margin="normal"
                 placeholder="PL-001"
@@ -137,7 +131,7 @@ function EntryDialog({
               <TextField
                 fullWidth
                 label="Code-Barre"
-                value={entry.barcode}
+                value={entry.barcode || ''}
                 onChange={(e) => onChange({...entry, barcode: e.target.value})}
                 margin="normal"
                 placeholder="Scannez ou saisissez le code-barre"
@@ -165,18 +159,6 @@ function EntryDialog({
                     disabled={loading}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="body1" fontWeight="bold">
-                        {option.code}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {option.name}
-                      </Typography>
-                    </Box>
-                  </Box>
-                )}
                 disabled={loading}
               />
             </Grid>
@@ -194,8 +176,8 @@ function EntryDialog({
                 fullWidth
                 type="number"
                 label="Quantité (kg)"
-                value={entry.quantityKg}
-                onChange={(e) => onChange({...entry, quantityKg: e.target.value})}
+                value={entry.quantityKg || ''}
+                onChange={(e) => onChange({...entry, quantityKg: parseFloat(e.target.value) || 0})}
                 margin="normal"
                 inputProps={{ min: 0, step: 0.1 }}
                 disabled={loading}
@@ -207,8 +189,8 @@ function EntryDialog({
                 fullWidth
                 type="number"
                 label="Quantité (cartons)"
-                value={entry.quantityCartons}
-                onChange={(e) => onChange({...entry, quantityCartons: e.target.value})}
+                value={entry.quantityCartons || ''}
+                onChange={(e) => onChange({...entry, quantityCartons: parseInt(e.target.value) || 0})}
                 margin="normal"
                 inputProps={{ min: 0, step: 1 }}
                 disabled={loading}
@@ -220,7 +202,7 @@ function EntryDialog({
                 fullWidth
                 type="date"
                 label="Date de Péremption"
-                value={entry.expirationDate}
+                value={entry.expirationDate || ''}
                 onChange={(e) => onChange({...entry, expirationDate: e.target.value})}
                 margin="normal"
                 InputLabelProps={{ shrink: true }}
@@ -234,7 +216,7 @@ function EntryDialog({
                 label="Remarques"
                 multiline
                 rows={3}
-                value={entry.remarks}
+                value={entry.remarks || ''}
                 onChange={(e) => onChange({...entry, remarks: e.target.value})}
                 margin="normal"
                 placeholder="Remarques supplémentaires..."
