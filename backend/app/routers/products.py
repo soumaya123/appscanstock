@@ -24,7 +24,15 @@ def create_product(
         if db_product_barcode:
             raise HTTPException(status_code=400, detail="Code-barre already exists")
     
-    db_product = Product(**product.dict())
+    # Valeurs par défaut côté backend pour éviter erreurs de payload partiel
+    data = product.dict()
+    data.setdefault('unite_kg', True)
+    data.setdefault('unite_cartons', True)
+    data.setdefault('prix_achat', 0.0)
+    data.setdefault('prix_vente', 0.0)
+    data.setdefault('seuil_alerte', 0.0)
+
+    db_product = Product(**data)
     db.add(db_product)
     db.commit()
     db.refresh(db_product)

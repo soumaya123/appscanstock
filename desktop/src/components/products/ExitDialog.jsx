@@ -82,9 +82,9 @@ function ExitDialog({
     newItems[index] = {
       ...newItems[index],
       productId: product?.id || '',
-      productCode: product?.code || '',
-      productName: product?.name || '',
-      barcode: product?.barcode || ''
+      productCode: product?.code_produit || product?.code || '',
+      productName: product?.nom_produit || product?.name || '',
+      barcode: product?.code_barre || product?.barcode || ''
     };
     onChange?.({ ...exit, items: newItems });
   };
@@ -181,15 +181,15 @@ function ExitDialog({
                   e.preventDefault();
                   const code = e.target.value.trim();
                   if (!code) return;
-                  const product = products.find(p => p.barcode === code);
+                  const product = products.find(p => (p.code_barre || p.barcode) === code);
                   if (product) {
                     const newItems = [
                       ...(exit.items || []),
                       {
                         productId: product.id,
-                        productCode: product.code,
-                        productName: product.name,
-                        barcode: product.barcode,
+                        productCode: product.code_produit || product.code,
+                        productName: product.nom_produit || product.name,
+                        barcode: product.code_barre || product.barcode,
                         quantityKg: 0,
                         quantityCartons: 0,
                         expirationDate: '',
@@ -233,7 +233,7 @@ function ExitDialog({
                     <TableCell sx={{ minWidth: 200 }}>
                       <Autocomplete
                         options={products}
-                        getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                        getOptionLabel={(option) => `${option.code_produit || option.code} - ${option.nom_produit || option.name}`}
                         value={products.find(p => p.id === item.productId) || null}
                         onChange={(e, newValue) => handleProductSelect(index, newValue)}
                         renderInput={(params) => <TextField {...params} variant="outlined" size="small" />}

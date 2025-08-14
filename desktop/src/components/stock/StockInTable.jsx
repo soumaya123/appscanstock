@@ -20,24 +20,29 @@ import {
   Tooltip,
   Button,
   Grid,
+  Checkbox,
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 
 import EntryDialog from '../products/EntryDialog'; // 👈 modal pour ajouter entrée stock
+import { stockEntryService } from '../../services/api';
+import { API_CONFIG } from '../../config';
 
 function StockInTable({
-  stocks = [],
+  entries = [],
+  products = [],
   onEdit,
   onDelete,
   onView,
   onAdd,
-  title = "Gestion du Stock",
+  title = "Entrées de Stock",
   showActions = true,
   maxRows = null
 }) {
@@ -48,33 +53,69 @@ function StockInTable({
   const [openModal, setOpenModal] = useState(false); // 👈 état pour le modal
   const [open, setOpen] = useState(false);
   const [entry, setEntry] = useState({ items: [] });
-  const handleSubmit = (data) => {
-    console.log('Entrée soumise :', data);
-    setOpen(false);
+  const [selected, setSelected] = useState([]);
+
+  const handleSubmit = async (data) => {
+    // data contient: receptionDate, receptionNumber, carnetNumber, invoiceNumber, packingListNumber, items[]
+    const toIsoDate = (d) => {
+      if (!d) return null;
+      // si déjà avec heure, retourner tel quel
+      if (/T\d{2}:\d{2}/.test(d)) return d;
+      return `${d}T00:00:00`;
+    };
+
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const base = {
+        date_reception: toIsoDate(data.receptionDate || today),
+        num_reception: data.receptionNumber,
+        num_reception_carnet: data.carnetNumber || null,
+        num_facture: data.invoiceNumber || null,
+        num_packing_liste: data.packingListNumber || null,
+      };
+      // Créer une entrée par item
+      for (const item of data.items || []) {
+        if (!item.productId) continue;
+        const payload = {
+          ...base,
+          product_id: item.productId,
+          qte_kg: Number(item.quantityKg || 0),
+          qte_cartons: Number(item.quantityCartons || 0),
+          date_peremption: toIsoDate(item.expirationDate),
+          remarque: item.remarks || null,
+        };
+        await stockEntryService.create(payload);
+      }
+      setOpenModal(false);
+      setEntry({ items: [] });
+      if (typeof onAdd === 'function') onAdd();
+    } catch (err) {
+      console.error('Erreur création entrée stock:', err?.response?.data || err);
+    }
   };
-  const testProducts = [
-    { id: 'p1', code: 'PRD-001', name: 'Produit A', barcode: '123456789' },
-    { id: 'p2', code: 'PRD-002', name: 'Produit B', barcode: '987654321' },
-    { id: 'p3', code: 'PRD-003', name: 'Produit C', barcode: '456789123' },
-  ];
+
+  const handleToggle = (id) => {
+    setSelected((prev) => prev.includes(id) ? prev.filter(x => x !== id) : prev.concat(id));
+  };
+
+  const handleToggleAll = (filteredList) => {
+    if (selected.length === filteredList.length) setSelected([]);
+    else setSelected(filteredList.map(e => e.id));
+  };
+
+  const handlePrintSelected = () => {
+    if (!selected.length) return;
+    selected.forEach((id) => {
+      const url = `${API_CONFIG.BASE_URL}/reports/pdf/stock-entry/${id}`;
+      window.open(url, '_blank');
+    });
+  };
   // Filtrage
-  const filteredStocks = stocks.filter(stock => {
-    const matchesSearch =
-      (stock.item_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (stock.item_code || '').toLowerCase().includes(searchTerm.toLowerCase());
-
-    if (filterStatus === 'low-stock') {
-      return matchesSearch && (stock.actual_qty <= (stock.reorder_level || 0));
-    }
-    if (filterStatus === 'out-of-stock') {
-      return matchesSearch && (stock.actual_qty === 0);
-    }
-    return matchesSearch;
+  const filtered = entries.filter((e) => {
+    const txt = `${e.num_reception || ''} ${(e.product?.nom_produit || '')}`.toLowerCase();
+    return txt.includes(searchTerm.toLowerCase());
   });
-
-  const displayStocks = maxRows
-    ? filteredStocks.slice(0, maxRows)
-    : filteredStocks.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const display = maxRows ? filtered.slice(0, maxRows) : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // Gestion modal
   const handleOpenModal = () => setOpenModal(true);
@@ -88,14 +129,25 @@ function StockInTable({
             <Typography variant="h6" fontWeight="bold">
               {title}
             </Typography>
+            <Box display="flex" gap={1}>
             <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenModal} // 👈 ouvre le modal
+              variant="outlined"
+              startIcon={<PrintIcon />}
+              onClick={handlePrintSelected}
+              disabled={selected.length === 0}
               sx={{ borderRadius: 2 }}
             >
-              Nouveau Entrée stock
+              Imprimer bons
             </Button>
+            <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenModal}
+                sx={{ borderRadius: 2 }}
+              >
+                Nouveau Entrée stock
+              </Button>
+          </Box>
           </Box>
 
           {!maxRows && (
@@ -132,69 +184,58 @@ function StockInTable({
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Code Article</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Nom Article</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Dépôt</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Qté Actuelle</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Niveau de Réappro</TableCell>
-                  {showActions && <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>}
-                </TableRow>
+              <TableRow>
+              <TableCell padding="checkbox">
+              <Checkbox
+              indeterminate={selected.length > 0 && selected.length < filtered.length}
+              checked={filtered.length > 0 && selected.length === filtered.length}
+              onChange={() => handleToggleAll(filtered)}
+              inputProps={{ 'aria-label': 'select all entries' }}
+              />
+              </TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Date Réception</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Num. Réception</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Produit</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (kg)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (cartons)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
+              </TableRow>
               </TableHead>
               <TableBody>
-                {displayStocks.map((stock) => (
-                  <TableRow
-                    key={`${stock.item_code}-${stock.warehouse}`}
-                    hover
-                    sx={{
-                      '&:hover': {
-                        bgcolor: 'action.hover'
-                      }
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium" color="primary.main">
-                        {stock.item_code}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>{stock.item_name}</TableCell>
-                    <TableCell align="center">{stock.warehouse}</TableCell>
-                    <TableCell align="center">{stock.actual_qty}</TableCell>
-                    <TableCell align="center">{stock.reorder_level || '-'}</TableCell>
-                    {showActions && (
-                      <TableCell align="center">
-                        <Box display="flex" gap={0.5} justifyContent="center">
-                          <Tooltip title="Voir détails">
-                            <IconButton
-                              size="small"
-                              onClick={() => onView(stock)}
-                              sx={{ color: 'primary.main' }}
-                            >
-                              <ViewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Modifier">
-                            <IconButton
-                              size="small"
-                              onClick={() => onEdit(stock)}
-                              sx={{ color: 'warning.main' }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Supprimer">
-                            <IconButton
-                              size="small"
-                              onClick={() => onDelete(stock)}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    )}
-                  </TableRow>
+                {display.map((e) => (
+                <TableRow
+                key={e.id}
+                hover
+                sx={{
+                '&:hover': {
+                bgcolor: 'action.hover'
+                }
+                }}
+                >
+                <TableCell padding="checkbox">
+                <Checkbox
+                checked={selected.includes(e.id)}
+                onChange={() => handleToggle(e.id)}
+                inputProps={{ 'aria-label': `select entry ${e.id}` }}
+                />
+                </TableCell>
+                <TableCell>{new Date(e.date_reception).toLocaleString()}</TableCell>
+                <TableCell>
+                <Typography variant="body2" fontWeight="medium" color="primary.main">
+                {e.num_reception}
+                </Typography>
+                </TableCell>
+                <TableCell>{e.product?.nom_produit || '-'}</TableCell>
+                <TableCell align="center">{e.qte_kg}</TableCell>
+                <TableCell align="center">{e.qte_cartons}</TableCell>
+                <TableCell align="center">
+                <Tooltip title="Imprimer bon">
+                <IconButton size="small" onClick={() => window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-entry/${e.id}`, '_blank')}>
+                <PrintIcon fontSize="small" />
+                </IconButton>
+                </Tooltip>
+                </TableCell>
+                </TableRow>
                 ))}
               </TableBody>
             </Table>
@@ -203,7 +244,7 @@ function StockInTable({
           {!maxRows && (
             <TablePagination
               component="div"
-              count={filteredStocks.length}
+              count={filtered.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={(e, newPage) => setPage(newPage)}
@@ -225,7 +266,7 @@ function StockInTable({
         onSubmit={handleSubmit}
         entry={entry}
         onChange={setEntry}
-        products={testProducts}
+        products={products}
         loading={false}
       />
     </Grid>

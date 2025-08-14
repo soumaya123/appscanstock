@@ -305,3 +305,5 @@ def download_stock_summary_excel(
         
     except ImportError:
         raise HTTPException(status_code=500, detail="openpyxl not available for Excel export")
+
+#

@@ -6,7 +6,8 @@ import theme from './theme';
 import { storage, STORAGE_KEYS } from './utils/helpers';
 
 // Composants
-import { LoginForm, Header, Sidebar, Dashboard, ProductsTable,StockInTable,StockOutTable } from './components';
+import { LoginForm, Header, Sidebar, Dashboard, ProductsTable,StockInTable,StockOutTable, MovementsTable } from './components';
+import { useProducts, useStockEntries, useStockExits, useDashboardStats } from './hooks/useApi';
 
 // Services
 import { authService } from './services/api';
@@ -74,34 +75,95 @@ function App() {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  const { products, fetchProducts } = useProducts();
+  const { entries, fetchEntries } = useStockEntries();
+  const { exits, fetchExits } = useStockExits();
+  const { stats, fetchStats } = useDashboardStats();
+
+  // Rafraîchir les produits après login et à l'ouverture de la vue Produits
+  useEffect(() => {
+    if (user) {
+      fetchProducts().catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && selectedMenu === 'products') {
+      fetchProducts().catch(() => {});
+    }
+  }, [selectedMenu, user]);
+
+  // Rafraîchir les produits après login et à l'ouverture de la vue Produits
+  useEffect(() => {
+    if (user) {
+      fetchProducts().catch(() => {});
+      fetchEntries().catch(() => {});
+      fetchExits().catch(() => {});
+      fetchStats().catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user && selectedMenu === 'products') {
+      fetchProducts().catch(() => {});
+    }
+    if (user && selectedMenu === 'stock-in') {
+      fetchEntries().catch(() => {});
+    }
+    if (user && selectedMenu === 'stock-out') {
+      fetchExits().catch(() => {});
+    }
+    if (user && selectedMenu === 'dashboard') {
+      fetchStats().catch(() => {});
+    }
+  }, [selectedMenu, user]);
+
   const renderMainContent = () => {
     switch (selectedMenu) {
       case 'dashboard':
-        return <Dashboard />;
+        return (
+          <Dashboard
+            stockData={{
+              totalProducts: stats.totalProducts,
+              totalStock: stats.totalStock,
+              monthlyEntries: stats.monthlyEntries,
+              monthlyExits: stats.monthlyExits,
+            }}
+            onNewProduct={() => setSelectedMenu('products')}
+            onNewEntry={() => setSelectedMenu('stock-in')}
+            onNewExit={() => setSelectedMenu('stock-out')}
+            recentActivities={stats.recentActivities || []}
+            lowStockProducts={stats.lowStockProducts || []}
+          />
+        );
       case 'products':
         return <ProductsTable 
-            products={[]} // <-- assure que products n'est jamais undefined
-            onAdd={() => showSnackbar('Ajouter produit')}
-            onEdit={() => showSnackbar('Modifier produit')}
-            onDelete={() => showSnackbar('Supprimer produit')}
+            products={products}
+            onAdd={() => { fetchProducts(); showSnackbar('Produit ajouté'); }}
+            onEdit={() => { fetchProducts(); showSnackbar('Produit modifié'); }}
+            onDelete={() => { fetchProducts(); showSnackbar('Produit supprimé'); }}
             onView={() => showSnackbar('Voir produit')}
         />;
       case 'stock-in':
           return <StockInTable 
-                  stocks={[]} // <-- assure que products n'est jamais undefined
-                  onAdd={() => showSnackbar('Ajouter produit')}
-                  onEdit={() => showSnackbar('Modifier produit')}
-                  onDelete={() => showSnackbar('Supprimer produit')}
-                  onView={() => showSnackbar('Voir produit')}
+                  entries={entries}
+                  products={products}
+                  onAdd={() => { fetchEntries(); fetchProducts(); fetchStats(); showSnackbar('Entrée stock enregistrée'); }}
+                  onEdit={() => showSnackbar('Modifier entrée')}
+                  onDelete={() => showSnackbar('Supprimer entrée')}
+                  onView={() => showSnackbar('Voir entrée')}
                 />;
       case 'stock-out':
         return <StockOutTable 
-                stocks={[]} // <-- assure que products n'est jamais undefined
-                onAdd={() => showSnackbar('Ajouter produit')}
-                onEdit={() => showSnackbar('Modifier produit')}
-                onDelete={() => showSnackbar('Supprimer produit')}
-                onView={() => showSnackbar('Voir produit')}
+                exits={exits}
+                products={products}
+                onAdd={() => { fetchExits(); fetchProducts(); fetchStats(); showSnackbar('Sortie stock enregistrée'); }}
+                onEdit={() => showSnackbar('Modifier sortie')}
+                onDelete={() => showSnackbar('Supprimer sortie')}
+                onView={() => showSnackbar('Voir sortie')}
               />;
+      case 'movements':
+        return <MovementsTable product={products[0] || null} products={products} />;
       default:
         return <Dashboard />;
     }

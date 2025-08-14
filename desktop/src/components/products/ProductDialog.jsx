@@ -10,7 +10,7 @@ function ProductDialog({
   open, 
   onClose, 
   onSubmit, 
-  product = { code: "", name: "", description: "", unit: "", alertThreshold: 10, barcode: "" }, 
+  product = { code: "", name: "", description: "", unit: "", alertThreshold: 10, barcode: "", pricePurchase: 0, priceSale: 0 }, 
   onChange, 
   loading = false 
 }) {
@@ -24,7 +24,7 @@ function ProductDialog({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit && onSubmit(e);
+    onSubmit && onSubmit(product);
   };
 
   const handleScan = (e) => {
@@ -103,6 +103,18 @@ function ProductDialog({
             </Grid>
 
             <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Code-barres"
+                value={product.barcode || ''}
+                onChange={(e) => safeOnChange({ ...product, barcode: e.target.value })}
+                margin="normal"
+                placeholder="EAN/UPC"
+                disabled={loading}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth margin="normal">
                 <InputLabel>Unité de mesure</InputLabel>
                 <Select
@@ -128,6 +140,34 @@ function ProductDialog({
                 margin="normal"
                 placeholder="10"
                 helperText="Quantité minimale avant alerte"
+                disabled={loading}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Prix d'achat"
+                value={product.pricePurchase ?? 0}
+                onChange={(e) => safeOnChange({ ...product, pricePurchase: parseFloat(e.target.value) || 0 })}
+                margin="normal"
+                placeholder="0.000"
+                inputProps={{ step: 0.001, min: 0 }}
+                disabled={loading}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Prix de vente"
+                value={product.priceSale ?? 0}
+                onChange={(e) => safeOnChange({ ...product, priceSale: parseFloat(e.target.value) || 0 })}
+                margin="normal"
+                placeholder="0.000"
+                inputProps={{ step: 0.001, min: 0 }}
                 disabled={loading}
               />
             </Grid>

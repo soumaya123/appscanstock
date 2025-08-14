@@ -19,6 +19,7 @@ export { default as StockOutTable } from './stock/StockOutTable';
 export { default as ProductDialog } from './products/ProductDialog';
 export { default as EntryDialog } from './products/EntryDialog';
 export { default as ExitDialog } from './products/ExitDialog';
+export { default as MovementsTable } from './movements/MovementsTable';
 
 // Composants communs
 export { default as StockCard } from './common/StockCard';

@@ -18,7 +18,8 @@ import {
   TableBody,
   Tooltip
 } from '@mui/material';
-import { Inventory as EntryIcon, Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Inventory as EntryIcon, Add as AddIcon, Delete as DeleteIcon, PhotoCamera as CameraIcon } from '@mui/icons-material';
+import CameraScannerDialog from '../common/CameraScannerDialog';
 
 function EntryDialog({ 
   open, 
@@ -30,6 +31,8 @@ function EntryDialog({
   loading = false 
 }) {
   const today = new Date().toISOString().split('T')[0];
+
+  const [openScanner, setOpenScanner] = React.useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -145,28 +148,70 @@ function EntryDialog({
               />
             </Grid>
             <Grid item xs={6} sm={6}>
-              <TextField
-                fullWidth
-                label="Scanner Code-Barres"
-                placeholder="Scannez un produit..."
-                disabled={loading}
-                onKeyDown={(e) => {
+              <Box display="flex" alignItems="center" gap={1}>
+                <TextField
+                  fullWidth
+                  label="Scanner Code-Barres / QR"
+                  placeholder="Scannez un produit ou un QR JSON..."
+                  disabled={loading}
+                  onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    const code = e.target.value.trim();
-                    if (!code) return;
+                    const raw = e.target.value.trim();
+                    if (!raw) return;
 
-                    // Chercher le produit par code-barres
-                    const product = products.find(p => p.barcode === code);
+                    const tryIso = (d) => d ? (/T\d{2}:/.test(d) ? d : `${d}T00:00:00`) : '';
+
+                    let parsed = null;
+                    try { parsed = JSON.parse(raw); } catch {}
+
+                    if (parsed && typeof parsed === 'object') {
+                      // QR JSON: peut contenir productId, code_produit, code_barre, qte_kg, qte_cartons, date_peremption, num_reception, receptionDate, remarque
+                      let prod = null;
+                      if (parsed.productId) prod = products.find(p => p.id === Number(parsed.productId));
+                      if (!prod && parsed.code_produit) prod = products.find(p => (p.code_produit || p.code) === parsed.code_produit);
+                      if (!prod && parsed.code_barre) prod = products.find(p => (p.code_barre || p.barcode) === parsed.code_barre);
+
+                      if (parsed.receptionDate || parsed.num_reception) {
+                        onChange?.({
+                          ...entry,
+                          receptionDate: parsed.receptionDate || entry.receptionDate,
+                          receptionNumber: parsed.num_reception || entry.receptionNumber,
+                        });
+                      }
+
+                      if (prod) {
+                        const newItems = [
+                          ...(entry.items || []),
+                          {
+                            productId: prod.id,
+                            productCode: prod.code_produit || prod.code,
+                            productName: prod.nom_produit || prod.name,
+                            barcode: prod.code_barre || prod.barcode,
+                            quantityKg: Number(parsed.qte_kg || 0),
+                            quantityCartons: Number(parsed.qte_cartons || 0),
+                            expirationDate: tryIso(parsed.date_peremption) || '',
+                            remarks: parsed.remarque || ''
+                          }
+                        ];
+                        onChange?.({ ...entry, items: newItems });
+                      } else {
+                        alert('Produit non trouvé dans le QR');
+                      }
+                      e.target.value = '';
+                      return;
+                    }
+
+                    // Fallback: code-barres simple
+                    const product = products.find(p => (p.code_barre || p.barcode) === raw || (p.code_produit || p.code) === raw);
                     if (product) {
-                      // Ajouter automatiquement dans le tableau
                       const newItems = [
                         ...(entry.items || []),
                         {
                           productId: product.id,
-                          productCode: product.code,
-                          productName: product.name,
-                          barcode: product.barcode,
+                          productCode: product.code_produit || product.code,
+                          productName: product.nom_produit || product.name,
+                          barcode: product.code_barre || product.barcode,
                           quantityKg: 0,
                           quantityCartons: 0,
                           expirationDate: '',
@@ -174,9 +219,62 @@ function EntryDialog({
                         }
                       ];
                       onChange?.({ ...entry, items: newItems });
-                      e.target.value = ''; // vider le champ scan
+                      e.target.value = '';
                     } else {
                       alert('Produit non trouvé !');
+                    }
+                  }
+                }}
+                />
+                <Tooltip title="Scanner via Caméra">
+                  <IconButton onClick={() => setOpenScanner(true)} disabled={loading}>
+                    <CameraIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              <CameraScannerDialog
+                open={openScanner}
+                onClose={() => setOpenScanner(false)}
+                onDetected={(code) => {
+                  const e = { key: 'Enter', preventDefault: () => {}, target: { value: code } };
+                  // réutiliser la logique existante
+                  // onKeyDown handler n'est pas accessible ici facilement; dupliquer le comportement simplifié
+                  const raw = code.trim();
+                  if (!raw) return;
+                  let parsed = null;
+                  try { parsed = JSON.parse(raw); } catch {}
+                  if (parsed && typeof parsed === 'object') {
+                    let prod = null;
+                    if (parsed.productId) prod = products.find(p => p.id === Number(parsed.productId));
+                    if (!prod && parsed.code_produit) prod = products.find(p => (p.code_produit || p.code) === parsed.code_produit);
+                    if (!prod && parsed.code_barre) prod = products.find(p => (p.code_barre || p.barcode) === parsed.code_barre);
+                    if (parsed.receptionDate || parsed.num_reception) {
+                      onChange?.({ ...entry, receptionDate: parsed.receptionDate || entry.receptionDate, receptionNumber: parsed.num_reception || entry.receptionNumber });
+                    }
+                    if (prod) {
+                      const newItems = [ ...(entry.items || []), {
+                        productId: prod.id,
+                        productCode: prod.code_produit || prod.code,
+                        productName: prod.nom_produit || prod.name,
+                        barcode: prod.code_barre || prod.barcode,
+                        quantityKg: Number(parsed.qte_kg || 0),
+                        quantityCartons: Number(parsed.qte_cartons || 0),
+                        expirationDate: parsed.date_peremption || '',
+                        remarks: parsed.remarque || ''
+                      }];
+                      onChange?.({ ...entry, items: newItems });
+                    }
+                  } else {
+                    const product = products.find(p => (p.code_barre || p.barcode) === raw || (p.code_produit || p.code) === raw);
+                    if (product) {
+                      const newItems = [ ...(entry.items || []), {
+                        productId: product.id,
+                        productCode: product.code_produit || product.code,
+                        productName: product.nom_produit || product.name,
+                        barcode: product.code_barre || product.barcode,
+                        quantityKg: 0, quantityCartons: 0, expirationDate: '', remarks: ''
+                      }];
+                      onChange?.({ ...entry, items: newItems });
                     }
                   }
                 }}
@@ -213,7 +311,7 @@ function EntryDialog({
                     <TableCell sx={{ minWidth: 200 }}>
                       <Autocomplete
                         options={products}
-                        getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                        getOptionLabel={(option) => `${option.code_produit || option.code} - ${option.nom_produit || option.name}`}
                         value={products.find(p => p.id === item.productId) || null}
                         onChange={(e, newValue) => handleProductSelect(index, newValue)}
                         renderInput={(params) => <TextField {...params} variant="outlined" size="small" />}

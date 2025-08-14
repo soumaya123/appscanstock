@@ -32,6 +32,7 @@ import {
   Add as AddIcon,
   Padding,
 } from '@mui/icons-material';
+import { productService } from '../../services/api';
 
 function ProductsTable({ 
   products = [],
@@ -48,17 +49,18 @@ function ProductsTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [openModal, setOpenModal] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [product, setProduct] = useState({
+    id: null,
     code: "",
     name: "",
     description: "",
     unit: "",
     alertThreshold: 10,
-    barcode: ""
+    barcode: "",
+    pricePurchase: 0,
+    priceSale: 0
   });
-  const handleChange = (newProduct) => {
-    setProduct(newProduct);
-  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = (product.nom_produit || product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -84,8 +86,96 @@ function ProductsTable({
     if (totalStock <= threshold) return { status: 'Stock Faible', color: 'warning' };
     return { status: 'En Stock', color: 'success' };
   };
-  const handleOpenModal = () => setOpenModal(true);
+
+  const handleOpenModal = () => {
+    setProduct({ id: null, code: "", name: "", description: "", unit: "", alertThreshold: 10, barcode: "", pricePurchase: 0, priceSale: 0 });
+    setOpenModal(true);
+  };
   const handleCloseModal = () => setOpenModal(false);
+
+  const resetProduct = () => setProduct({
+    id: null,
+    code: "",
+    name: "",
+    description: "",
+    unit: "",
+    alertThreshold: 10,
+    barcode: "",
+    pricePurchase: 0,
+    priceSale: 0
+  });
+
+  const mapToBackendPayload = (p) => {
+    const unite = p.unit || 'both';
+    return {
+      code_produit: p.code,
+      code_barre: p.barcode || null,
+      nom_produit: p.name,
+      description: p.description || null,
+      unite_kg: unite === 'kg' || unite === 'both',
+      unite_cartons: unite === 'cartons' || unite === 'both',
+      prix_achat: Number(p.pricePurchase || 0),
+      prix_vente: Number(p.priceSale || 0),
+      seuil_alerte: Number(p.alertThreshold || 0),
+    };
+  };
+
+  const handleCreateProduct = async () => {
+    setSaving(true);
+    try {
+      const payload = mapToBackendPayload(product);
+      await productService.create(payload);
+      handleCloseModal();
+      resetProduct();
+      // Optionnel: notifier le parent pour rafraîchir
+      if (typeof onAdd === 'function') onAdd();
+    } catch (err) {
+      console.error('Erreur lors de la création du produit:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEdit = (row) => {
+    setProduct({
+      id: row.id,
+      code: row.code_produit || '',
+      name: row.nom_produit || '',
+      description: row.description || '',
+      unit: (row.unite_kg && row.unite_cartons) ? 'both' : (row.unite_kg ? 'kg' : (row.unite_cartons ? 'cartons' : '')),
+      alertThreshold: row.seuil_alerte ?? 0,
+      barcode: row.code_barre || '',
+      pricePurchase: row.prix_achat ?? 0,
+      priceSale: row.prix_vente ?? 0,
+    });
+    setOpenModal(true);
+  };
+
+  const handleUpdateProduct = async () => {
+    if (!product.id) return;
+    setSaving(true);
+    try {
+      const payload = mapToBackendPayload(product);
+      await productService.update(product.id, payload);
+      handleCloseModal();
+      resetProduct();
+      if (typeof onEdit === 'function') onEdit();
+    } catch (err) {
+      console.error('Erreur lors de la mise à jour du produit:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (row) => {
+    try {
+      await productService.delete(row.id);
+      if (typeof onDelete === 'function') onDelete();
+    } catch (err) {
+      console.error('Erreur lors de la suppression du produit:', err);
+    }
+  };
+
   return (
     <Grid  xs={12} md={12} style={{ padding: "50px" }}>
     <Paper sx={{ borderRadius: 2 }} >
@@ -214,7 +304,7 @@ function ProductsTable({
                           <Tooltip title="Modifier">
                             <IconButton 
                               size="small" 
-                              onClick={() => onEdit(product)}
+                              onClick={() => handleEdit(product)}
                               sx={{ color: 'warning.main' }}
                             >
                               <EditIcon fontSize="small" />
@@ -223,7 +313,7 @@ function ProductsTable({
                           <Tooltip title="Supprimer">
                             <IconButton 
                               size="small" 
-                              onClick={() => onDelete(product)} 
+                              onClick={() => handleDelete(product)} 
                               sx={{ color: 'error.main' }}
                             >
                               <DeleteIcon fontSize="small" />
@@ -257,11 +347,12 @@ function ProductsTable({
       </Box>
     </Paper>
     <ProductDialog
-      open={open}
-      onClose={() => setOpen(false)}
+      open={openModal}
+      onClose={() => { handleCloseModal(); }}
       product={product}
       onChange={(updatedProduct) => setProduct(updatedProduct)}
-      onSubmit={(prod) => console.log("Produit à enregistrer", prod)}
+      onSubmit={product.id ? handleUpdateProduct : handleCreateProduct}
+      loading={saving}
     />
     </Grid>
   );

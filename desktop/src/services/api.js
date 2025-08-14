@@ -264,37 +264,38 @@ export const statsService = {
       const currentYear = now.getFullYear();
 
       const monthlyEntries = entries.filter(entry => {
-        const entryDate = new Date(entry.receptionDate || entry.created_at);
+        const entryDate = new Date(entry.date_reception || entry.created_at);
         return entryDate.getMonth() === currentMonth && entryDate.getFullYear() === currentYear;
       }).length;
 
       const monthlyExits = exits.filter(exit => {
-        const exitDate = new Date(exit.exitDate || exit.created_at);
+        const exitDate = new Date(exit.date_sortie || exit.created_at);
         return exitDate.getMonth() === currentMonth && exitDate.getFullYear() === currentYear;
       }).length;
 
       // Produits avec stock faible
-      const lowStockProducts = products.filter(product => 
-        (product.currentStock || 0) < (product.alertThreshold || 50)
-      );
+      const lowStockProducts = products.filter(product => (
+        (product.stock_actuel_kg || 0) <= (product.seuil_alerte || 0) ||
+        (product.stock_actuel_cartons || 0) <= (product.seuil_alerte || 0)
+      ));
 
       // Activités récentes
       const recentActivities = [
         ...entries.slice(0, 5).map(entry => ({
           type: 'entry',
-          description: `Entrée: ${entry.productName || 'Produit'} - ${entry.quantityKg}kg`,
-          date: new Date(entry.receptionDate || entry.created_at).toLocaleDateString(),
+          description: `Entrée: ${(entry.product?.nom_produit) || 'Produit'} - ${entry.qte_kg}kg`,
+          date: new Date(entry.date_reception || entry.created_at).toLocaleString(),
           user: 'Utilisateur'
         })),
         ...exits.slice(0, 5).map(exit => ({
           type: 'exit',
-          description: `Sortie: ${exit.productName || 'Produit'} - ${exit.quantityKg}kg`,
-          date: new Date(exit.exitDate || exit.created_at).toLocaleDateString(),
+          description: `Sortie: ${(exit.product?.nom_produit) || 'Produit'} - ${exit.qte_kg}kg`,
+          date: new Date(exit.date_sortie || exit.created_at).toLocaleString(),
           user: 'Utilisateur'
         }))
       ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
 
-      const totalStock = products.reduce((sum, product) => sum + (product.currentStock || 0), 0);
+      const totalStock = products.reduce((sum, product) => sum + (product.stock_actuel_kg || 0), 0);
 
       return {
         totalProducts: products.length,
@@ -308,6 +309,17 @@ export const statsService = {
       console.error('Erreur lors du calcul des statistiques:', error);
       throw error;
     }
+  }
+};
+
+// =====================================
+// SERVICES MOUVEMENTS DE STOCK
+// =====================================
+export const movementService = {
+  // Récupérer les mouvements pour un produit
+  getByProduct: async (productId, params = {}) => {
+    const response = await apiClient.get(`/reports/movements/${productId}`, { params });
+    return response.data;
   }
 };
 

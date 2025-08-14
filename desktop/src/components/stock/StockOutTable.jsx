@@ -30,14 +30,16 @@ import {
 } from '@mui/icons-material';
 
 import ExitDialog from '../products/ExitDialog'; // 👈 modal pour ajouter entrée stock
+import { stockExitService } from '../../services/api';
 
 function StockOutTable({
-  stocks = [],
+  exits = [],
+  products = [],
   onEdit,
   onDelete,
   onView,
   onAdd,
-  title = "Gestion du Sortie de stock",
+  title = "Sorties de Stock",
   showActions = true,
   maxRows = null
 }) {
@@ -48,33 +50,47 @@ function StockOutTable({
   const [openModal, setOpenModal] = useState(false); // 👈 état pour le modal
   const [open, setOpen] = useState(false);
   const [entry, setEntry] = useState({ items: [] });
-  const handleSubmit = (data) => {
-    console.log('Entrée soumise :', data);
-    setOpen(false);
+
+  const handleSubmit = async (data) => {
+    const toIsoDate = (d) => {
+      if (!d) return null;
+      if (/T\d{2}:\d{2}/.test(d)) return d;
+      return `${d}T00:00:00`;
+    };
+
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      const base = {
+        date_sortie: toIsoDate(data.exitDate || today),
+        num_facture: data.invoiceNumber || null,
+        type_sortie: data.type,
+      };
+      for (const item of data.items || []) {
+        if (!item.productId) continue;
+        const payload = {
+          ...base,
+          product_id: item.productId,
+          qte_kg: Number(item.quantityKg || 0),
+          qte_cartons: Number(item.quantityCartons || 0),
+          date_peremption: toIsoDate(item.expirationDate),
+          prix_vente: item.salePrice || null,
+          remarque: item.remarks || null,
+        };
+        await stockExitService.create(payload);
+      }
+      setOpenModal(false);
+      setEntry({ items: [] });
+      if (typeof onAdd === 'function') onAdd();
+    } catch (err) {
+      console.error('Erreur création sortie stock:', err?.response?.data || err);
+    }
   };
-  const testProducts = [
-    { id: 'p1', code: 'PRD-001', name: 'Produit A', barcode: '123456789' },
-    { id: 'p2', code: 'PRD-002', name: 'Produit B', barcode: '987654321' },
-    { id: 'p3', code: 'PRD-003', name: 'Produit C', barcode: '456789123' },
-  ];
   // Filtrage
-  const filteredStocks = stocks.filter(stock => {
-    const matchesSearch =
-      (stock.item_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (stock.item_code || '').toLowerCase().includes(searchTerm.toLowerCase());
-
-    if (filterStatus === 'low-stock') {
-      return matchesSearch && (stock.actual_qty <= (stock.reorder_level || 0));
-    }
-    if (filterStatus === 'out-of-stock') {
-      return matchesSearch && (stock.actual_qty === 0);
-    }
-    return matchesSearch;
+  const filtered = exits.filter((x) => {
+    const txt = `${x.num_facture || ''} ${(x.product?.nom_produit || '')}`.toLowerCase();
+    return txt.includes(searchTerm.toLowerCase());
   });
-
-  const displayStocks = maxRows
-    ? filteredStocks.slice(0, maxRows)
-    : filteredStocks.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const display = maxRows ? filtered.slice(0, maxRows) : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // Gestion modal
   const handleOpenModal = () => setOpenModal(true);
@@ -133,18 +149,18 @@ function StockOutTable({
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Code Article</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Nom Article</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Dépôt</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Qté Actuelle</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Niveau de Réappro</TableCell>
-                  {showActions && <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>}
+                  <TableCell sx={{ fontWeight: 'bold' }}>Date Sortie</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Num. Facture</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Produit</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (kg)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (cartons)</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {displayStocks.map((stock) => (
-                  <TableRow
-                    key={`${stock.item_code}-${stock.warehouse}`}
+                {display.map((x) => (
+                <TableRow
+                key={x.id}
                     hover
                     sx={{
                       '&:hover': {
@@ -152,48 +168,16 @@ function StockOutTable({
                       }
                     }}
                   >
+                    <TableCell>{new Date(x.date_sortie).toLocaleString()}</TableCell>
+                    <TableCell>{x.type_sortie}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium" color="primary.main">
-                        {stock.item_code}
+                        {x.num_facture || '-'}
                       </Typography>
                     </TableCell>
-                    <TableCell>{stock.item_name}</TableCell>
-                    <TableCell align="center">{stock.warehouse}</TableCell>
-                    <TableCell align="center">{stock.actual_qty}</TableCell>
-                    <TableCell align="center">{stock.reorder_level || '-'}</TableCell>
-                    {showActions && (
-                      <TableCell align="center">
-                        <Box display="flex" gap={0.5} justifyContent="center">
-                          <Tooltip title="Voir détails">
-                            <IconButton
-                              size="small"
-                              onClick={() => onView(stock)}
-                              sx={{ color: 'primary.main' }}
-                            >
-                              <ViewIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Modifier">
-                            <IconButton
-                              size="small"
-                              onClick={() => onEdit(stock)}
-                              sx={{ color: 'warning.main' }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Supprimer">
-                            <IconButton
-                              size="small"
-                              onClick={() => onDelete(stock)}
-                              sx={{ color: 'error.main' }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    )}
+                    <TableCell>{x.product?.nom_produit || '-'}</TableCell>
+                    <TableCell align="center">{x.qte_kg}</TableCell>
+                    <TableCell align="center">{x.qte_cartons}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -203,7 +187,7 @@ function StockOutTable({
           {!maxRows && (
             <TablePagination
               component="div"
-              count={filteredStocks.length}
+              count={filtered.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={(e, newPage) => setPage(newPage)}
@@ -225,7 +209,7 @@ function StockOutTable({
         onSubmit={handleSubmit}
         exit={entry}
         onChange={setEntry}
-        products={testProducts}
+        products={products}
         loading={false}
       />
     </Grid>

@@ -21,8 +21,14 @@ app = FastAPI(
 )
 
 # Configuration CORS
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8081,http://192.168.100.156:3000")
+cors_origins = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8081,http://192.168.100.156:3000"
+)
 origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
+# Autoriser aussi l'origine 'null' utilisée par le contexte file:// d'Electron
+if 'null' not in origins:
+    origins.append('null')
 
 # En mode développement, permettre tous les origins
 if os.getenv("ENVIRONMENT", "development") == "development":
