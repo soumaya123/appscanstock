@@ -14,8 +14,8 @@ export { default as Dashboard } from './dashboard/Dashboard';
 
 // Composants des produits
 export { default as ProductsTable } from './products/ProductsTable';
-export { default as StockTable } from './stock/StockTable';
-
+export { default as StockInTable } from './stock/StockInTable';
+export { default as StockOutTable } from './stock/StockOutTable';
 export { default as ProductDialog } from './products/ProductDialog';
 export { default as EntryDialog } from './products/EntryDialog';
 export { default as ExitDialog } from './products/ExitDialog';

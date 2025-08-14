@@ -48,6 +48,17 @@ function ProductsTable({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [openModal, setOpenModal] = useState(false);
+  const [product, setProduct] = useState({
+    code: "",
+    name: "",
+    description: "",
+    unit: "",
+    alertThreshold: 10,
+    barcode: ""
+  });
+  const handleChange = (newProduct) => {
+    setProduct(newProduct);
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = (product.nom_produit || product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -246,10 +257,12 @@ function ProductsTable({
       </Box>
     </Paper>
     <ProductDialog
-        open={openModal}
-        onClose={handleCloseModal}
-        onSave={onAdd} // passe directement ta fonction d'ajout
-      />
+      open={open}
+      onClose={() => setOpen(false)}
+      product={product}
+      onChange={(updatedProduct) => setProduct(updatedProduct)}
+      onSubmit={(prod) => console.log("Produit à enregistrer", prod)}
+    />
     </Grid>
   );
 }

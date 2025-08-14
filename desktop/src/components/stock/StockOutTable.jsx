@@ -29,15 +29,15 @@ import {
   Add as AddIcon
 } from '@mui/icons-material';
 
-import EntryDialog from '../products/EntryDialog'; // 👈 modal pour ajouter entrée stock
+import ExitDialog from '../products/ExitDialog'; // 👈 modal pour ajouter entrée stock
 
-function StockTable({
+function StockOutTable({
   stocks = [],
   onEdit,
   onDelete,
   onView,
   onAdd,
-  title = "Gestion du Stock",
+  title = "Gestion du Sortie de stock",
   showActions = true,
   maxRows = null
 }) {
@@ -94,7 +94,7 @@ function StockTable({
               onClick={handleOpenModal} // 👈 ouvre le modal
               sx={{ borderRadius: 2 }}
             >
-              Nouveau Entrée stock
+              Nouveau Sortie stock
             </Button>
           </Box>
 
@@ -219,11 +219,11 @@ function StockTable({
       </Paper>
 
       {/* Modal d'entrée stock */}
-      <EntryDialog
+      <ExitDialog
         open={openModal}
         onClose={() => setOpenModal(false)} 
         onSubmit={handleSubmit}
-        entry={entry}
+        exit={entry}
         onChange={setEntry}
         products={testProducts}
         loading={false}
@@ -232,4 +232,4 @@ function StockTable({
   );
 }
 
-export default StockTable;
+export default StockOutTable;
