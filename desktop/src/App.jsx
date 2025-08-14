@@ -6,7 +6,7 @@ import theme from './theme';
 import { storage, STORAGE_KEYS } from './utils/helpers';
 
 // Composants
-import { LoginForm, Header, Sidebar, Dashboard, ProductsTable } from './components';
+import { LoginForm, Header, Sidebar, Dashboard, ProductsTable,StockTable } from './components';
 
 // Services
 import { authService } from './services/api';
@@ -80,12 +80,20 @@ function App() {
         return <Dashboard />;
       case 'products':
         return <ProductsTable 
-                  products={[]} // <-- assure que products n'est jamais undefined
-                  onAdd={() => showSnackbar('Ajouter produit')}
-                  onEdit={() => showSnackbar('Modifier produit')}
-                  onDelete={() => showSnackbar('Supprimer produit')}
-                  onView={() => showSnackbar('Voir produit')}
-               />;
+            products={[]} // <-- assure que products n'est jamais undefined
+            onAdd={() => showSnackbar('Ajouter produit')}
+            onEdit={() => showSnackbar('Modifier produit')}
+            onDelete={() => showSnackbar('Supprimer produit')}
+            onView={() => showSnackbar('Voir produit')}
+        />;
+      case 'stock-in':
+          return <StockTable 
+                    stocks={[]} // <-- assure que products n'est jamais undefined
+                    onAdd={() => showSnackbar('Ajouter produit')}
+                    onEdit={() => showSnackbar('Modifier produit')}
+                    onDelete={() => showSnackbar('Supprimer produit')}
+                    onView={() => showSnackbar('Voir produit')}
+                  />;
       default:
         return <Dashboard />;
     }

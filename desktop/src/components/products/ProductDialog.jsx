@@ -20,7 +20,7 @@ function ProductDialog({
   open, 
   onClose, 
   onSubmit, 
-  product, 
+  product = { code: "", name: "", description: "", unit: "", alertThreshold: 10 }, 
   onChange, 
   loading = false 
 }) {

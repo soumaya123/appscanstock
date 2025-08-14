@@ -22,6 +22,8 @@ import {
   Button,
   Grid,
 } from '@mui/material';
+import ProductDialog from './ProductDialog'; // 👈 import modal
+
 import {
   Search as SearchIcon,
   Visibility as ViewIcon,
@@ -45,6 +47,7 @@ function ProductsTable({
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [openModal, setOpenModal] = useState(false);
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = (product.nom_produit || product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,7 +73,8 @@ function ProductsTable({
     if (totalStock <= threshold) return { status: 'Stock Faible', color: 'warning' };
     return { status: 'En Stock', color: 'success' };
   };
-
+  const handleOpenModal = () => setOpenModal(true);
+  const handleCloseModal = () => setOpenModal(false);
   return (
     <Grid  xs={12} md={12} style={{ padding: "50px" }}>
     <Paper sx={{ borderRadius: 2 }} >
@@ -79,16 +83,14 @@ function ProductsTable({
           <Typography variant="h6" fontWeight="bold">
             {title}
           </Typography>
-          {onAdd && (
-            <Button
+          <Button
               variant="contained"
               startIcon={<AddIcon />}
-              onClick={onAdd}
+              onClick={handleOpenModal} // 👈 ouvre le modal
               sx={{ borderRadius: 2 }}
             >
               Nouveau Produit
             </Button>
-          )}
         </Box>
 
         {!maxRows && (
@@ -243,6 +245,11 @@ function ProductsTable({
         )}
       </Box>
     </Paper>
+    <ProductDialog
+        open={openModal}
+        onClose={handleCloseModal}
+        onSave={onAdd} // passe directement ta fonction d'ajout
+      />
     </Grid>
   );
 }
