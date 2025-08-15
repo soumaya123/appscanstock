@@ -119,3 +119,23 @@ class StockMovement(Base):
     
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class StockAdjustment(Base):
+    __tablename__ = "stock_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date_ajustement = Column(DateTime(timezone=True), nullable=False)
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product = relationship("Product")
+
+    type_ajustement = Column(String(20), nullable=False)  # increase, decrease
+    qte_kg = Column(Float, default=0.0)
+    qte_cartons = Column(Integer, default=0)
+
+    raison = Column(Text, nullable=False)
+    reference_document = Column(String(100), nullable=True)
+
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_user = relationship("User")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

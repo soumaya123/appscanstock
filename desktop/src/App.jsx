@@ -6,7 +6,7 @@ import theme from './theme';
 import { storage, STORAGE_KEYS } from './utils/helpers';
 
 // Composants
-import { LoginForm, Header, Sidebar, Dashboard, ProductsTable,StockInTable,StockOutTable, MovementsTable } from './components';
+import { LoginForm, Header, Sidebar, Dashboard, ProductsTable,StockInTable,StockOutTable, MovementsTable, Reports, Adjustments } from './components';
 import { useProducts, useStockEntries, useStockExits, useDashboardStats } from './hooks/useApi';
 
 // Services
@@ -134,6 +134,8 @@ function App() {
             onNewExit={() => setSelectedMenu('stock-out')}
             recentActivities={stats.recentActivities || []}
             lowStockProducts={stats.lowStockProducts || []}
+            entryGroups={stats.entryGroups || []}
+            exitGroups={stats.exitGroups || []}
           />
         );
       case 'products':
@@ -163,7 +165,11 @@ function App() {
                 onView={() => showSnackbar('Voir sortie')}
               />;
       case 'movements':
-        return <MovementsTable product={products[0] || null} products={products} />;
+        return <MovementsTable product={ null} products={products} />;
+      case 'reports':
+        return <Reports />;
+      case 'adjustments':
+        return <Adjustments />;
       default:
         return <Dashboard />;
     }

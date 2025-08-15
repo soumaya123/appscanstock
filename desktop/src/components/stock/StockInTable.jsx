@@ -21,6 +21,10 @@ import {
   Button,
   Grid,
   Checkbox,
+Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -54,6 +58,8 @@ function StockInTable({
   const [open, setOpen] = useState(false);
   const [entry, setEntry] = useState({ items: [] });
   const [selected, setSelected] = useState([]);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [currentReception, setCurrentReception] = useState(null);
 
   const handleSubmit = async (data) => {
     // data contient: receptionDate, receptionNumber, carnetNumber, invoiceNumber, packingListNumber, items[]
@@ -73,19 +79,34 @@ function StockInTable({
         num_facture: data.invoiceNumber || null,
         num_packing_liste: data.packingListNumber || null,
       };
-      // Créer une entrée par item
-      for (const item of data.items || []) {
-        if (!item.productId) continue;
-        const payload = {
-          ...base,
+
+      const items = (data.items || [])
+        .filter((item) => item.productId)
+        .map((item) => ({
           product_id: item.productId,
           qte_kg: Number(item.quantityKg || 0),
           qte_cartons: Number(item.quantityCartons || 0),
           date_peremption: toIsoDate(item.expirationDate),
           remarque: item.remarks || null,
-        };
-        await stockEntryService.create(payload);
+        }));
+
+      if (items.length === 0) return;
+
+      // Essayer en batch si plusieurs items
+      if (items.length > 1) {
+        try {
+          await stockEntryService.createBatch({ ...base, items });
+        } catch (batchErr) {
+          // fallback: créer individuellement
+          for (const payload of items.map((it) => ({ ...base, ...it }))) {
+            await stockEntryService.create(payload);
+          }
+        }
+      } else {
+        // un seul item
+        await stockEntryService.create({ ...base, ...items[0] });
       }
+
       setOpenModal(false);
       setEntry({ items: [] });
       if (typeof onAdd === 'function') onAdd();
@@ -100,22 +121,52 @@ function StockInTable({
 
   const handleToggleAll = (filteredList) => {
     if (selected.length === filteredList.length) setSelected([]);
-    else setSelected(filteredList.map(e => e.id));
+    else setSelected(filteredList.map(e => e.num_reception));
   };
 
   const handlePrintSelected = () => {
     if (!selected.length) return;
-    selected.forEach((id) => {
-      const url = `${API_CONFIG.BASE_URL}/reports/pdf/stock-entry/${id}`;
+    selected.forEach((num) => {
+      const url = `${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(num)}`;
       window.open(url, '_blank');
     });
   };
+  // Regrouper par numéro de réception
+  const receptionsMap = (entries || []).reduce((acc, e) => {
+    const key = e.num_reception || '—';
+    if (!acc[key]) {
+      acc[key] = {
+        num_reception: key,
+        date_reception: e.date_reception,
+        num_facture: e.num_facture,
+        num_packing_liste: e.num_packing_liste,
+        num_reception_carnet: e.num_reception_carnet,
+        items: [],
+        total_kg: 0,
+        total_cartons: 0,
+      };
+    }
+    const grp = acc[key];
+    if (e.date_reception && new Date(e.date_reception) < new Date(grp.date_reception)) {
+      grp.date_reception = e.date_reception;
+    }
+    grp.items.push(e);
+    grp.total_kg += (e.qte_kg || 0);
+    grp.total_cartons += (e.qte_cartons || 0);
+    return acc;
+  }, {});
+
+  const receptions = Object.values(receptionsMap);
+
   // Filtrage
-  const filtered = entries.filter((e) => {
-    const txt = `${e.num_reception || ''} ${(e.product?.nom_produit || '')}`.toLowerCase();
+  const filtered = receptions.filter((r) => {
+    const txt = `${r.num_reception || ''} ${r.num_facture || ''} ${r.num_packing_liste || ''}`.toLowerCase();
     return txt.includes(searchTerm.toLowerCase());
   });
-  const display = maxRows ? filtered.slice(0, maxRows) : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  const display = maxRows
+    ? filtered.slice(0, maxRows)
+    : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   // Gestion modal
   const handleOpenModal = () => setOpenModal(true);
@@ -195,16 +246,17 @@ function StockInTable({
               </TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Date Réception</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Num. Réception</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Produit</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (kg)</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (cartons)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Num. Facture</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Num. Packing Liste</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Total (kg)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Total (cartons)</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
               </TableRow>
               </TableHead>
               <TableBody>
-                {display.map((e) => (
+                {display.map((r) => (
                 <TableRow
-                key={e.id}
+                key={r.num_reception}
                 hover
                 sx={{
                 '&:hover': {
@@ -214,23 +266,29 @@ function StockInTable({
                 >
                 <TableCell padding="checkbox">
                 <Checkbox
-                checked={selected.includes(e.id)}
-                onChange={() => handleToggle(e.id)}
-                inputProps={{ 'aria-label': `select entry ${e.id}` }}
+                checked={selected.includes(r.num_reception)}
+                onChange={() => handleToggle(r.num_reception)}
+                inputProps={{ 'aria-label': `select entry ${r.num_reception}` }}
                 />
                 </TableCell>
-                <TableCell>{new Date(e.date_reception).toLocaleString()}</TableCell>
+                <TableCell>{new Date(r.date_reception).toLocaleString()}</TableCell>
                 <TableCell>
                 <Typography variant="body2" fontWeight="medium" color="primary.main">
-                {e.num_reception}
+                {r.num_reception}
                 </Typography>
                 </TableCell>
-                <TableCell>{e.product?.nom_produit || '-'}</TableCell>
-                <TableCell align="center">{e.qte_kg}</TableCell>
-                <TableCell align="center">{e.qte_cartons}</TableCell>
+                <TableCell>{r.num_facture || '-'}</TableCell>
+                <TableCell align="center">{r.num_packing_liste || '-'}</TableCell>
+                <TableCell align="right">{r.total_kg}</TableCell>
+                <TableCell align="right">{r.total_cartons}</TableCell>
                 <TableCell align="center">
-                <Tooltip title="Imprimer bon">
-                <IconButton size="small" onClick={() => window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-entry/${e.id}`, '_blank')}>
+                <Tooltip title="Détails">
+                <IconButton size="small" onClick={() => { setCurrentReception(r); setDetailOpen(true); }}>
+                <ViewIcon fontSize="small" />
+                </IconButton>
+                </Tooltip>
+                <Tooltip title="Imprimer réception">
+                <IconButton size="small" onClick={() => window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(r.num_reception)}`, '_blank')}>
                 <PrintIcon fontSize="small" />
                 </IconButton>
                 </Tooltip>
@@ -269,6 +327,55 @@ function StockInTable({
         products={products}
         loading={false}
       />
+
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>Détails Réception {currentReception?.num_reception}</DialogTitle>
+        <DialogContent>
+          <Box mb={2}>
+            <Typography>Date Réception: {currentReception ? new Date(currentReception.date_reception).toLocaleString() : '-'}</Typography>
+            <Typography>Numéro Facture: {currentReception?.num_facture || '-'}</Typography>
+            <Typography>Numéro Packing Liste: {currentReception?.num_packing_liste || '-'}</Typography>
+            <Typography>Numéro Carnet: {currentReception?.num_reception_carnet || '-'}</Typography>
+            <Typography>Nombre d'articles: {currentReception?.items?.length || 0}</Typography>
+            <Typography>Total: {currentReception?.total_kg || 0} kg / {currentReception?.total_cartons || 0} cartons</Typography>
+          </Box>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Code Produit</TableCell>
+                <TableCell>Nom Produit</TableCell>
+                <TableCell align="right">Quantité (kg)</TableCell>
+                <TableCell align="right">Quantité (cartons)</TableCell>
+                <TableCell>Date Péremption</TableCell>
+                <TableCell>Remarque</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(currentReception?.items || []).map((it) => (
+                <TableRow key={it.id}>
+                  <TableCell>{it.product?.code_produit || '-'}</TableCell>
+                  <TableCell>{it.product?.nom_produit || '-'}</TableCell>
+                  <TableCell align="right">{it.qte_kg}</TableCell>
+                  <TableCell align="right">{it.qte_cartons}</TableCell>
+                  <TableCell>{it.date_peremption ? new Date(it.date_peremption).toLocaleDateString() : '-'}</TableCell>
+                  <TableCell>{it.remarque || ''}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailOpen(false)}>Fermer</Button>
+          <Button
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={() => currentReception && window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(currentReception.num_reception)}`, '_blank')}
+            disabled={!currentReception}
+          >
+            Imprimer réception
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 }

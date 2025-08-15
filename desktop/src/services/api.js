@@ -194,6 +194,16 @@ export const stockEntryService = {
   },
 
   /**
+   * Créer plusieurs entrées de stock d'un coup (une réception avec plusieurs items)
+   * @param {Object} batchData - { date_reception, num_reception, num_reception_carnet?, num_facture?, num_packing_liste?, items: [{ product_id, qte_kg, qte_cartons, date_peremption?, remarque? }] }
+   * @returns {Promise} Liste des entrées créées
+   */
+  createBatch: async (batchData) => {
+    const response = await apiClient.post('/stock-entries/batch', batchData);
+    return response.data;
+  },
+
+  /**
    * Récupérer une entrée par ID
    * @param {string|number} id - ID de l'entrée
    * @returns {Promise} Données de l'entrée
@@ -279,21 +289,59 @@ export const statsService = {
         (product.stock_actuel_cartons || 0) <= (product.seuil_alerte || 0)
       ));
 
-      // Activités récentes
-      const recentActivities = [
-        ...entries.slice(0, 5).map(entry => ({
-          type: 'entry',
-          description: `Entrée: ${(entry.product?.nom_produit) || 'Produit'} - ${entry.qte_kg}kg`,
-          date: new Date(entry.date_reception || entry.created_at).toLocaleString(),
-          user: 'Utilisateur'
-        })),
-        ...exits.slice(0, 5).map(exit => ({
-          type: 'exit',
-          description: `Sortie: ${(exit.product?.nom_produit) || 'Produit'} - ${exit.qte_kg}kg`,
-          date: new Date(exit.date_sortie || exit.created_at).toLocaleString(),
-          user: 'Utilisateur'
-        }))
-      ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+      // Groupes d'entrées par réception
+      const entryGroupsMap = (entries || []).reduce((acc, e) => {
+        const key = e.num_reception || '—';
+        if (!acc[key]) {
+          acc[key] = {
+            num_reception: key,
+            date_reception: e.date_reception,
+            num_facture: e.num_facture,
+            num_packing_liste: e.num_packing_liste,
+            num_reception_carnet: e.num_reception_carnet,
+            itemsCount: 0,
+            total_kg: 0,
+            total_cartons: 0,
+          };
+        }
+        const g = acc[key];
+        if (e.date_reception && new Date(e.date_reception) < new Date(g.date_reception)) {
+          g.date_reception = e.date_reception;
+        }
+        g.itemsCount += 1;
+        g.total_kg += (e.qte_kg || 0);
+        g.total_cartons += (e.qte_cartons || 0);
+        return acc;
+      }, {});
+      const entryGroups = Object.values(entryGroupsMap)
+        .sort((a, b) => new Date(b.date_reception) - new Date(a.date_reception))
+        .slice(0, 10);
+
+      // Groupes de sorties par facture
+      const exitGroupsMap = (exits || []).reduce((acc, x) => {
+        const key = x.num_facture || `${(x.type_sortie || 'sortie')}-${new Date(x.date_sortie).toISOString().slice(0,10)}`;
+        if (!acc[key]) {
+          acc[key] = {
+            num_facture: x.num_facture || '-',
+            type_sortie: x.type_sortie,
+            date_sortie: x.date_sortie,
+            itemsCount: 0,
+            total_kg: 0,
+            total_cartons: 0,
+          };
+        }
+        const g = acc[key];
+        if (x.date_sortie && new Date(x.date_sortie) < new Date(g.date_sortie)) {
+          g.date_sortie = x.date_sortie;
+        }
+        g.itemsCount += 1;
+        g.total_kg += (x.qte_kg || 0);
+        g.total_cartons += (x.qte_cartons || 0);
+        return acc;
+      }, {});
+      const exitGroups = Object.values(exitGroupsMap)
+        .sort((a, b) => new Date(b.date_sortie) - new Date(a.date_sortie))
+        .slice(0, 10);
 
       const totalStock = products.reduce((sum, product) => sum + (product.stock_actuel_kg || 0), 0);
 
@@ -303,7 +351,9 @@ export const statsService = {
         monthlyEntries,
         monthlyExits,
         lowStockProducts,
-        recentActivities
+        recentActivities: [],
+        entryGroups,
+        exitGroups,
       };
     } catch (error) {
       console.error('Erreur lors du calcul des statistiques:', error);
@@ -320,7 +370,43 @@ export const movementService = {
   getByProduct: async (productId, params = {}) => {
     const response = await apiClient.get(`/reports/movements/${productId}`, { params });
     return response.data;
+  },
+  // Récupérer tous les mouvements (ou filtrer via params)
+  getAll: async (params = {}) => {
+    const response = await apiClient.get('/reports/movements', { params });
+    return response.data;
   }
+};
+export const adjustmentService = {
+  /**
+   * Récupérer toutes les sorties de stock
+   * @param {Object} params - Paramètres de requête
+   * @returns {Promise} Liste des sorties
+   */
+  getAll: async (params = {}) => {
+    const response = await apiClient.get('/adjustments/', { params });
+    return response.data;
+  },
+
+  /**
+   * Créer une nouvelle sortie de stock
+   * @param {Object} exitData - Données de la sortie
+   * @returns {Promise} Sortie créée
+   */
+  create: async (exitData) => {
+    const response = await apiClient.post('/adjustments/', exitData);
+    return response.data;
+  },
+
+  /**
+   * Récupérer une sortie par ID
+   * @param {string|number} id - ID de la sortie
+   * @returns {Promise} Données de la sortie
+   */
+  getById: async (id) => {
+    const response = await apiClient.get(`/adjustments/${id}/`);
+    return response.data;
+  },
 };
 
 // Export par défaut du client API

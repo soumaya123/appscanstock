@@ -20,19 +20,17 @@ function MovementsTable({ product, products = [] }) {
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
-    // Initialiser la sélection si non définie
-    if (!selectedProduct && products && products.length > 0) {
-      setSelectedProduct(products[0]);
-    }
-  }, [products, selectedProduct]);
+    // Laisser l'utilisateur choisir le produit (aucune auto-sélection)
+  }, [products]);
 
   useEffect(() => {
     let ignore = false;
     const fetchMovements = async () => {
-      if (!selectedProduct?.id) { setMovements([]); return; }
       setLoading(true);
       try {
-        const data = await movementService.getByProduct(selectedProduct.id);
+        const data = selectedProduct?.id
+          ? await movementService.getByProduct(selectedProduct.id)
+          : await movementService.getAll();
         if (!ignore) setMovements(Array.isArray(data) ? data : []);
       } catch (e) {
         if (!ignore) setMovements([]);
@@ -95,6 +93,9 @@ function MovementsTable({ product, products = [] }) {
               }}
               sx={{ minWidth: 260 }}
             >
+              <MenuItem value="">
+                Sélectionner produit
+              </MenuItem>
               {products.map((p) => (
                 <MenuItem key={p.id} value={p.id}>
                   {(p.code_produit || p.code)} - {(p.nom_produit || p.name)}
@@ -198,16 +199,17 @@ function MovementsTable({ product, products = [] }) {
                 <html><head><title>Impression Mouvements</title>
                 <style>table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px;text-align:right}th{text-align:left}</style>
                 </head><body>
-                <h3>Mouvements - ${(selectedProduct?.nom_produit || selectedProduct?.name || '')}</h3>
+                <h3>Mouvements - ${selectedProduct ? (selectedProduct.nom_produit || selectedProduct.name || '') : 'Tous les produits'}</h3>
                 <table>
                 <thead><tr>
-                  <th>Date</th><th>Type</th><th>Avant (kg)</th><th>Mouv. (kg)</th><th>Après (kg)</th>
+                  <th>Date</th>${selectedProduct ? '' : '<th>Produit</th>'}<th>Type</th><th>Avant (kg)</th><th>Mouv. (kg)</th><th>Après (kg)</th>
                   <th>Avant (cartons)</th><th>Mouv. (cartons)</th><th>Après (cartons)</th><th>Référence</th>
                 </tr></thead>
                 <tbody>
                 ${rows.map(m => `
                   <tr>
                     <td style="text-align:left">${new Date(m.created_at).toLocaleString()}</td>
+                    ${selectedProduct ? '' : `<td style="text-align:left">${m.product?.code_produit || m.product?.name || m.product_id}</td>`}
                     <td style="text-align:left">${m.type_mouvement}</td>
                     <td>${m.qte_kg_avant}</td>
                     <td>${m.qte_kg_mouvement}</td>
@@ -229,6 +231,7 @@ function MovementsTable({ product, products = [] }) {
             <TableHead>
               <TableRow>
                 <TableCell>Date</TableCell>
+                {!selectedProduct && <TableCell>Produit</TableCell>}
                 <TableCell>Type</TableCell>
                 <TableCell align="right">Avant (kg)</TableCell>
                 <TableCell align="right">Mouv. (kg)</TableCell>
@@ -249,6 +252,9 @@ function MovementsTable({ product, products = [] }) {
                 display.map((m) => (
                   <TableRow key={m.id}>
                     <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                    {!selectedProduct && (
+                      <TableCell>{m.product?.code_produit || m.product?.name || m.product_id}</TableCell>
+                    )}
                     <TableCell>
                       <Chip label={m.type_mouvement} color={chipColor(m.type_mouvement)} size="small" />
                     </TableCell>

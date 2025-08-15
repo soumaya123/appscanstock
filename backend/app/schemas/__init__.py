@@ -98,6 +98,22 @@ class StockEntryBase(BaseModel):
 class StockEntryCreate(StockEntryBase):
     pass
 
+# Payload pour création par lot (une réception avec plusieurs lignes)
+class StockEntryItem(BaseModel):
+    product_id: int
+    qte_kg: float = 0.0
+    qte_cartons: int = 0
+    date_peremption: Optional[datetime] = None
+    remarque: Optional[str] = None
+
+class StockEntryBatchCreate(BaseModel):
+    date_reception: datetime
+    num_reception: str
+    num_reception_carnet: Optional[str] = None
+    num_facture: Optional[str] = None
+    num_packing_liste: Optional[str] = None
+    items: List[StockEntryItem]
+
 class StockEntryUpdate(BaseModel):
     date_reception: Optional[datetime] = None
     num_reception: Optional[str] = None
@@ -169,6 +185,40 @@ class StockMovement(BaseModel):
     created_by: int
     created_at: datetime
     
+    class Config:
+        from_attributes = True
+
+# Schémas pour les ajustements de stock
+class AdjustmentType(str, Enum):
+    INCREASE = "increase"
+    DECREASE = "decrease"
+
+class StockAdjustmentBase(BaseModel):
+    date_ajustement: datetime
+    product_id: int
+    type_ajustement: AdjustmentType
+    qte_kg: float = 0.0
+    qte_cartons: int = 0
+    raison: str
+    reference_document: Optional[str] = None
+
+class StockAdjustmentCreate(StockAdjustmentBase):
+    pass
+
+class StockAdjustmentUpdate(BaseModel):
+    date_ajustement: Optional[datetime] = None
+    type_ajustement: Optional[AdjustmentType] = None
+    qte_kg: Optional[float] = None
+    qte_cartons: Optional[int] = None
+    raison: Optional[str] = None
+    reference_document: Optional[str] = None
+
+class StockAdjustment(StockAdjustmentBase):
+    id: int
+    product: Product
+    created_by: int
+    created_at: datetime
+
     class Config:
         from_attributes = True
 

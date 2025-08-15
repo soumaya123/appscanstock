@@ -74,9 +74,9 @@ function EntryDialog({
     newItems[index] = {
       ...newItems[index],
       productId: product?.id || '',
-      productCode: product?.code || '',
-      productName: product?.name || '',
-      barcode: product?.barcode || '',
+      productCode: product?.code_produit || product?.code || '',
+      productName: product?.nom_produit || product?.name || '',
+      barcode: product?.code_barre || product?.barcode || '',
     };
     onChange?.({ ...entry, items: newItems });
   };
@@ -310,7 +310,7 @@ function EntryDialog({
                   <TableRow key={index}>
                     <TableCell sx={{ minWidth: 200 }}>
                       <Autocomplete
-                        options={products}
+                        options={products.filter(p => !(entry.items || []).some((it, i) => i !== index && it.productId === p.id))}
                         getOptionLabel={(option) => `${option.code_produit || option.code} - ${option.nom_produit || option.name}`}
                         value={products.find(p => p.id === item.productId) || null}
                         onChange={(e, newValue) => handleProductSelect(index, newValue)}

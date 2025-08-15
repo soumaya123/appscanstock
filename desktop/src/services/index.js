@@ -6,5 +6,6 @@ export {
   stockExitService, 
   statsService, 
   notificationService,
+  adjustmentService,
   apiClient 
 } from './api';

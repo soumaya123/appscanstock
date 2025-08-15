@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography } from '@mui/material';
+import { BrowserMultiFormatReader } from '@zxing/library';
 
 /**
  * CameraScannerDialog
@@ -18,26 +19,29 @@ function CameraScannerDialog({ open, onClose, onDetected, preferredFormats = ['q
   const [supported, setSupported] = useState(true);
   const rafRef = useRef(0);
   const detectorRef = useRef(null);
+  const zxingRef = useRef(null);
 
   useEffect(() => {
     const start = async () => {
       setError('');
       try {
-        if (!('BarcodeDetector' in window)) {
-          setSupported(false);
-          setError('BarcodeDetector non supporté par ce runtime.');
-          return;
-        }
-        const BarcodeDetector = window.BarcodeDetector;
-        const formats = preferredFormats && preferredFormats.length ? preferredFormats : undefined;
-        detectorRef.current = new BarcodeDetector({ formats });
         const constraints = { video: { facingMode: 'environment' } };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
-          loop();
+        }
+        if ('BarcodeDetector' in window) {
+          const BarcodeDetector = window.BarcodeDetector;
+          const formats = preferredFormats && preferredFormats.length ? preferredFormats : undefined;
+          detectorRef.current = new BarcodeDetector({ formats });
+          loopBD();
+        } else {
+          setSupported(false);
+          // fallback ZXing
+          zxingRef.current = new BrowserMultiFormatReader();
+          loopZX();
         }
       } catch (e) {
         setError('Impossible d\'accéder à la caméra');
@@ -45,22 +49,31 @@ function CameraScannerDialog({ open, onClose, onDetected, preferredFormats = ['q
       }
     };
 
-    const loop = async () => {
+    const loopBD = async () => {
       if (!detectorRef.current || !videoRef.current) return;
       try {
         const barcodes = await detectorRef.current.detect(videoRef.current);
         if (barcodes && barcodes.length) {
-          // Prendre le premier code détecté
-          const code = barcodes[0].rawValue || barcodes[0].rawValue === '' ? barcodes[0].rawValue : (barcodes[0].rawValue + '');
-          if (onDetected) onDetected(code, barcodes[0]);
-          // On ferme après une détection
+          const code = barcodes[0].rawValue || (barcodes[0].rawValue + '');
+          onDetected && onDetected(code, barcodes[0]);
           onClose && onClose();
           return;
         }
-      } catch (e) {
-        // ignorer pour le prochain frame
-      }
-      rafRef.current = requestAnimationFrame(loop);
+      } catch {}
+      rafRef.current = requestAnimationFrame(loopBD);
+    };
+
+    const loopZX = async () => {
+      if (!zxingRef.current || !videoRef.current) return;
+      try {
+        const result = await zxingRef.current.decodeOnceFromVideoElement(videoRef.current);
+        if (result && result.text != null) {
+          onDetected && onDetected(result.text, result);
+          onClose && onClose();
+          return;
+        }
+      } catch {}
+      rafRef.current = requestAnimationFrame(loopZX);
     };
 
     if (open) start();
@@ -75,6 +88,10 @@ function CameraScannerDialog({ open, onClose, onDetected, preferredFormats = ['q
         videoRef.current.srcObject = null;
       }
       detectorRef.current = null;
+      if (zxingRef.current) {
+        try { zxingRef.current.reset && zxingRef.current.reset(); } catch {}
+        zxingRef.current = null;
+      }
     };
   }, [open]);
 
@@ -83,8 +100,8 @@ function CameraScannerDialog({ open, onClose, onDetected, preferredFormats = ['q
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         {!supported && (
-          <Typography color="error" variant="body2" gutterBottom>
-            Votre environnement ne supporte pas l\'API BarcodeDetector. Utilisez le scan manuel.
+          <Typography color="warning.main" variant="body2" gutterBottom>
+            BarcodeDetector non disponible. Fallback ZXing activé.
           </Typography>
         )}
         {error && (

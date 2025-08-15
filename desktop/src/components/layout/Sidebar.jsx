@@ -31,6 +31,7 @@ const menuItems = [
   { text: 'Sorties de Stock', icon: <TrendingDownIcon />, id: 'stock-out' },
   { text: 'Mouvements', icon: <TimelineIcon />, id: 'movements' },
   { text: 'Rapports', icon: <ReportsIcon />, id: 'reports' },
+  { text: 'Ajustements de Stock', icon: <TrendingDownIcon />, id: 'adjustments' },
   { text: 'Alertes Stock', icon: <WarningIcon />, id: 'alerts' },
 ];
 

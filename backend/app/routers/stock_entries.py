@@ -4,7 +4,7 @@ from sqlalchemy import and_
 from typing import List, Optional
 from datetime import datetime
 from app.database import get_db, StockEntry, Product, StockMovement
-from app.schemas import StockEntryCreate, StockEntryUpdate, StockEntry as StockEntrySchema, User
+from app.schemas import StockEntryCreate, StockEntryUpdate, StockEntryBatchCreate, StockEntry as StockEntrySchema, User
 from app.routers.auth import get_current_active_user
 
 router = APIRouter()
@@ -43,6 +43,49 @@ def create_stock_movement(db: Session, product_id: int, qte_kg_avant: float, qte
     )
     db.add(movement)
     db.commit()
+
+@router.post("/batch", response_model=List[StockEntrySchema])
+def create_stock_entries_batch(
+    payload: StockEntryBatchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    created_entries = []
+    # validations de base
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="'items' cannot be empty")
+
+    for it in payload.items:
+        product = db.query(Product).filter(Product.id == it.product_id).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product not found: {it.product_id}")
+        entry_dict = {
+            'date_reception': payload.date_reception,
+            'num_reception': payload.num_reception,
+            'num_reception_carnet': payload.num_reception_carnet,
+            'num_facture': payload.num_facture,
+            'num_packing_liste': payload.num_packing_liste,
+            'product_id': it.product_id,
+            'qte_kg': it.qte_kg,
+            'qte_cartons': it.qte_cartons,
+            'date_peremption': it.date_peremption,
+            'remarque': it.remarque,
+        }
+        db_entry = StockEntry(**entry_dict, created_by=current_user.id)
+        db.add(db_entry)
+        db.commit()
+        db.refresh(db_entry)
+        # update stock + movement
+        updated = update_product_stock_on_entry(db, it.product_id, it.qte_kg, it.qte_cartons)
+        if updated:
+            old_kg, old_cartons, new_kg, new_cartons = updated
+            create_stock_movement(
+                db, it.product_id, old_kg, old_cartons,
+                it.qte_kg, it.qte_cartons, new_kg, new_cartons,
+                db_entry.id, "ENTRY", current_user.id
+            )
+        created_entries.append(db_entry)
+    return created_entries
 
 @router.post("/", response_model=StockEntrySchema)
 def create_stock_entry(

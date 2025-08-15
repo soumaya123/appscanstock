@@ -20,17 +20,23 @@ import {
   Tooltip,
   Button,
   Grid,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Search as SearchIcon,
   Visibility as ViewIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Print as PrintIcon
 } from '@mui/icons-material';
 
 import ExitDialog from '../products/ExitDialog'; // 👈 modal pour ajouter entrée stock
 import { stockExitService } from '../../services/api';
+import { API_CONFIG } from '../../config';
 
 function StockOutTable({
   exits = [],
@@ -50,6 +56,8 @@ function StockOutTable({
   const [openModal, setOpenModal] = useState(false); // 👈 état pour le modal
   const [open, setOpen] = useState(false);
   const [entry, setEntry] = useState({ items: [] });
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [currentGroup, setCurrentGroup] = useState(null);
 
   const handleSubmit = async (data) => {
     const toIsoDate = (d) => {
@@ -85,9 +93,36 @@ function StockOutTable({
       console.error('Erreur création sortie stock:', err?.response?.data || err);
     }
   };
+  // Regroupement des sorties: par numéro de facture si dispo, sinon par type + date (YYYY-MM-DD)
+  const groupsMap = (exits || []).reduce((acc, x) => {
+    const dateOnly = x.date_sortie ? new Date(x.date_sortie).toISOString().slice(0,10) : '';
+    const key = x.num_facture ? `F:${x.num_facture}` : `T:${x.type_sortie}|D:${dateOnly}`;
+    if (!acc[key]) {
+      acc[key] = {
+        key,
+        num_facture: x.num_facture || '-',
+        type_sortie: x.type_sortie || '-',
+        date_sortie: x.date_sortie,
+        items: [],
+        total_kg: 0,
+        total_cartons: 0,
+      };
+    }
+    const g = acc[key];
+    if (x.date_sortie && new Date(x.date_sortie) < new Date(g.date_sortie)) {
+      g.date_sortie = x.date_sortie;
+    }
+    g.items.push(x);
+    g.total_kg += (x.qte_kg || 0);
+    g.total_cartons += (x.qte_cartons || 0);
+    return acc;
+  }, {});
+
+  const groups = Object.values(groupsMap);
+
   // Filtrage
-  const filtered = exits.filter((x) => {
-    const txt = `${x.num_facture || ''} ${(x.product?.nom_produit || '')}`.toLowerCase();
+  const filtered = groups.filter((g) => {
+    const txt = `${g.num_facture || ''} ${g.type_sortie || ''}`.toLowerCase();
     return txt.includes(searchTerm.toLowerCase());
   });
   const display = maxRows ? filtered.slice(0, maxRows) : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -152,15 +187,15 @@ function StockOutTable({
                   <TableCell sx={{ fontWeight: 'bold' }}>Date Sortie</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Num. Facture</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Produit</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (kg)</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Quantité (cartons)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="right">Total (kg)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="right">Total (cartons)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {display.map((x) => (
+                {display.map((g) => (
                 <TableRow
-                key={x.id}
+                key={g.key}
                     hover
                     sx={{
                       '&:hover': {
@@ -168,16 +203,33 @@ function StockOutTable({
                       }
                     }}
                   >
-                    <TableCell>{new Date(x.date_sortie).toLocaleString()}</TableCell>
-                    <TableCell>{x.type_sortie}</TableCell>
+                    <TableCell>{g.date_sortie ? new Date(g.date_sortie).toLocaleString() : '-'}</TableCell>
+                    <TableCell>{g.type_sortie}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium" color="primary.main">
-                        {x.num_facture || '-'}
+                        {g.num_facture || '-'}
                       </Typography>
                     </TableCell>
-                    <TableCell>{x.product?.nom_produit || '-'}</TableCell>
-                    <TableCell align="center">{x.qte_kg}</TableCell>
-                    <TableCell align="center">{x.qte_cartons}</TableCell>
+                    <TableCell align="right">{g.total_kg}</TableCell>
+                    <TableCell align="right">{g.total_cartons}</TableCell>
+                    <TableCell align="center">
+                      <Tooltip title="Détails">
+                        <IconButton size="small" onClick={() => { setCurrentGroup(g); setDetailOpen(true); }}>
+                          <ViewIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Imprimer sortie">
+                        <IconButton size="small" onClick={() => {
+                          const dateOnly = g.date_sortie ? new Date(g.date_sortie).toISOString().slice(0,10) : '';
+                          const url = g.num_facture && g.num_facture !== '-' 
+                            ? `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?num_facture=${encodeURIComponent(g.num_facture)}`
+                            : `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?type_sortie=${encodeURIComponent(g.type_sortie || '')}&date_sortie=${encodeURIComponent(dateOnly)}`;
+                          window.open(url, '_blank');
+                        }}>
+                          <PrintIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -212,6 +264,60 @@ function StockOutTable({
         products={products}
         loading={false}
       />
+
+      {/* Détails d'une sortie groupée */}
+      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>Détails Sortie {currentGroup?.num_facture || currentGroup?.type_sortie}</DialogTitle>
+        <DialogContent>
+          <Box mb={2}>
+            <Typography>Date Sortie: {currentGroup?.date_sortie ? new Date(currentGroup.date_sortie).toLocaleString() : '-'}</Typography>
+            <Typography>Type: {currentGroup?.type_sortie || '-'}</Typography>
+            <Typography>Numéro Facture: {currentGroup?.num_facture || '-'}</Typography>
+            <Typography>Total: {currentGroup?.total_kg || 0} kg / {currentGroup?.total_cartons || 0} cartons</Typography>
+            <Typography>Nombre d'articles: {currentGroup?.items?.length || 0}</Typography>
+          </Box>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Code Produit</TableCell>
+                <TableCell>Nom Produit</TableCell>
+                <TableCell align="right">Quantité (kg)</TableCell>
+                <TableCell align="right">Quantité (cartons)</TableCell>
+                <TableCell>Prix de Vente</TableCell>
+                <TableCell>Remarque</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(currentGroup?.items || []).map((it) => (
+                <TableRow key={it.id}>
+                  <TableCell>{it.product?.code_produit || '-'}</TableCell>
+                  <TableCell>{it.product?.nom_produit || '-'}</TableCell>
+                  <TableCell align="right">{it.qte_kg}</TableCell>
+                  <TableCell align="right">{it.qte_cartons}</TableCell>
+                  <TableCell>{it.prix_vente != null ? it.prix_vente : '-'}</TableCell>
+                  <TableCell>{it.remarque || ''}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailOpen(false)}>Fermer</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              if (!currentGroup) return;
+              const dateOnly = currentGroup.date_sortie ? new Date(currentGroup.date_sortie).toISOString().slice(0,10) : '';
+              const url = currentGroup.num_facture && currentGroup.num_facture !== '-'
+                ? `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?num_facture=${encodeURIComponent(currentGroup.num_facture)}`
+                : `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?type_sortie=${encodeURIComponent(currentGroup.type_sortie || '')}&date_sortie=${encodeURIComponent(dateOnly)}`;
+              window.open(url, '_blank');
+            }}
+          >
+            Imprimer sortie
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Grid>
   );
 }

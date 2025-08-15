@@ -134,7 +134,7 @@ function ExitDialog({
               <FormControl fullWidth margin="normal" required>
                 <InputLabel>Type de Sortie</InputLabel>
                 <Select
-                  value={exit.type}
+                  value={exit.type || ''}
                   label="Type de Sortie"
                   onChange={(e) => onChange({...exit, type: e.target.value})}
                   disabled={loading}
@@ -159,7 +159,7 @@ function ExitDialog({
               <TextField
                 fullWidth
                 label="Numéro Facture"
-                value={exit.invoiceNumber}
+                value={exit.invoiceNumber || ''}
                 onChange={(e) => onChange({...exit, invoiceNumber: e.target.value})}
                 margin="normal"
                 placeholder="FAC-2024-001"
@@ -232,7 +232,7 @@ function ExitDialog({
                   <TableRow key={index}>
                     <TableCell sx={{ minWidth: 200 }}>
                       <Autocomplete
-                        options={products}
+                        options={products.filter(p => !(exit.items || []).some((it, i) => i !== index && it.productId === p.id))}
                         getOptionLabel={(option) => `${option.code_produit || option.code} - ${option.nom_produit || option.name}`}
                         value={products.find(p => p.id === item.productId) || null}
                         onChange={(e, newValue) => handleProductSelect(index, newValue)}

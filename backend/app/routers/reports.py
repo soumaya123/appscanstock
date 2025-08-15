@@ -109,6 +109,27 @@ def get_period_report(
         valeur_stock=valeur_stock
     )
 
+@router.get("/movements")
+def get_movements(
+    product_id: Optional[int] = Query(None),
+    date_debut: Optional[datetime] = Query(None),
+    date_fin: Optional[datetime] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Historique des mouvements (tous produits ou filtré par produit)."""
+    query = db.query(StockMovement)
+    if product_id:
+        query = query.filter(StockMovement.product_id == product_id)
+    if date_debut and date_fin:
+        query = query.filter(and_(StockMovement.created_at >= date_debut, StockMovement.created_at <= date_fin))
+    elif date_debut:
+        query = query.filter(StockMovement.created_at >= date_debut)
+    elif date_fin:
+        query = query.filter(StockMovement.created_at <= date_fin)
+    movements = query.order_by(StockMovement.created_at.desc()).all()
+    return movements
+
 @router.get("/movements/{product_id}")
 def get_product_movements(
     product_id: int,
@@ -305,5 +326,83 @@ def download_stock_summary_excel(
         
     except ImportError:
         raise HTTPException(status_code=500, detail="openpyxl not available for Excel export")
+
+@router.get("/pdf/stock-reception")
+def download_stock_reception_pdf(
+    num_reception: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Télécharger le bon d'entrée complet (réception) en PDF avec toutes les lignes (items)."""
+    entries = db.query(StockEntry).filter(StockEntry.num_reception == num_reception).all()
+    if not entries:
+        raise HTTPException(status_code=404, detail="Aucune entrée trouvée pour ce numéro de réception")
+
+    # Préparer en-tête
+    head = entries[0]
+    header = {
+        "Numéro de Réception": head.num_reception,
+        "Date de Réception": head.date_reception.strftime('%d/%m/%Y %H:%M'),
+        "Numéro Carnet": head.num_reception_carnet or '-',
+        "Numéro Facture": head.num_facture or '-',
+        "Numéro Packing Liste": head.num_packing_liste or '-',
+        "Nombre d'articles": len(entries)
+    }
+
+    # Créer un fichier temporaire PDF avec tableau simple
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    pdf_path = temp_file.name
+    temp_file.close()
+
+    c = canvas.Canvas(pdf_path, pagesize=A4)
+    width, height = A4
+
+    # Titre
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(50, height - 50, f"Bon d'entrée - Réception {num_reception}")
+
+    # En-tête
+    c.setFont("Helvetica", 10)
+    y = height - 80
+    for k, v in header.items():
+        c.drawString(50, y, f"{k}: {v}")
+        y -= 16
+
+    y -= 10
+    # Entêtes du tableau des items
+    c.setFont("Helvetica-Bold", 10)
+    headers = ["Code Produit", "Nom Produit", "Quantité (kg)", "Quantité (cartons)", "Date Péremption", "Remarques"]
+    col_x = [50, 160, 350, 450, 540, 630]
+    for i, htxt in enumerate(headers):
+        c.drawString(col_x[i], y, htxt)
+    y -= 14
+    c.setFont("Helvetica", 9)
+
+    # Lignes des items
+    for e in entries:
+        if y < 60:
+            c.showPage()
+            y = height - 50
+            c.setFont("Helvetica-Bold", 10)
+            for i, htxt in enumerate(headers):
+                c.drawString(col_x[i], y, htxt)
+            y -= 14
+            c.setFont("Helvetica", 9)
+        date_per = e.date_peremption.strftime('%d/%m/%Y') if e.date_peremption else '-'
+        c.drawString(col_x[0], y, f"{e.product.code_produit}")
+        c.drawString(col_x[1], y, f"{e.product.nom_produit}")
+        c.drawString(col_x[2], y, f"{e.qte_kg}")
+        c.drawString(col_x[3], y, f"{e.qte_cartons}")
+        c.drawString(col_x[4], y, f"{date_per}")
+        c.drawString(col_x[5], y, f"{e.remarque or ''}")
+        y -= 14
+
+    c.save()
+
+    return FileResponse(
+        pdf_path,
+        media_type='application/pdf',
+        filename=f"bon_entree_{num_reception}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    )
 
 #

@@ -11,6 +11,7 @@ export { default as Sidebar } from './layout/Sidebar';
 
 // Composants du tableau de bord
 export { default as Dashboard } from './dashboard/Dashboard';
+export { default as Reports } from './reports/Reports';
 
 // Composants des produits
 export { default as ProductsTable } from './products/ProductsTable';
@@ -20,6 +21,7 @@ export { default as ProductDialog } from './products/ProductDialog';
 export { default as EntryDialog } from './products/EntryDialog';
 export { default as ExitDialog } from './products/ExitDialog';
 export { default as MovementsTable } from './movements/MovementsTable';
+export { default as Adjustments } from './adjustments/Adjustments';
 
 // Composants communs
 export { default as StockCard } from './common/StockCard';

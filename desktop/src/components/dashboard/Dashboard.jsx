@@ -28,7 +28,9 @@ function Dashboard({
   onNewEntry,
   onNewExit,
   recentActivities = [],
-  lowStockProducts = []
+  lowStockProducts = [],
+  entryGroups = [],
+  exitGroups = []
 }) {
   // Conversion des données pour StockCard
   const stockStats = [
@@ -116,35 +118,29 @@ function Dashboard({
 
       {/* Section inférieure avec activités récentes et alertes */}
       <Grid container spacing={3}>
-        {/* Activités récentes */}
-        <Grid item xs={12} md={8}>
+        {/* Dernières réceptions (groupées) */}
+        <Grid item xs={12} md={6}>
           <Paper 
             elevation={0} 
             sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
           >
             <Typography variant="h6" fontWeight="bold" mb={2} color="primary.main">
-              Activités Récentes
+              Dernières Entrées (Réceptions)
             </Typography>
-            {recentActivities.length > 0 ? (
+            {entryGroups.length > 0 ? (
               <List>
-                {recentActivities.slice(0, 8).map((activity, index) => (
+                {entryGroups.slice(0, 8).map((g, index) => (
                   <React.Fragment key={index}>
                     <ListItem>
                       <ListItemIcon>
-                        {activity.type === 'entry' ? (
-                          <EntryIcon color="success" />
-                        ) : activity.type === 'exit' ? (
-                          <ExitIcon color="warning" />
-                        ) : (
-                          <AddIcon color="primary" />
-                        )}
+                        <EntryIcon color="success" />
                       </ListItemIcon>
                       <ListItemText
-                        primary={activity.description}
-                        secondary={`${activity.date} - ${activity.user}`}
+                        primary={`Réception ${g.num_reception} - ${new Date(g.date_reception).toLocaleString()}`}
+                        secondary={`Facture: ${g.num_facture || '-'} | Packing: ${g.num_packing_liste || '-'} | Articles: ${g.itemsCount} | Total: ${g.total_kg} kg / ${g.total_cartons} ctn`}
                       />
                     </ListItem>
-                    {index < recentActivities.slice(0, 8).length - 1 && <Divider />}
+                    {index < entryGroups.slice(0, 8).length - 1 && <Divider />}
                   </React.Fragment>
                 ))}
               </List>
@@ -152,10 +148,51 @@ function Dashboard({
               <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={6} color="text.secondary">
                 <Inventory sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
                 <Typography variant="h6" gutterBottom>
-                  Aucune activité récente
+                  Aucune entrée
                 </Typography>
                 <Typography variant="body2" textAlign="center">
-                  Les dernières actions sur le stock apparaîtront ici
+                  Les dernières réceptions s'afficheront ici
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        {/* Dernières sorties (groupées) */}
+        <Grid item xs={12} md={2}></Grid>
+        <Grid item xs={12} md={6}>
+          <Paper 
+            elevation={0} 
+            sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}
+          >
+            <Typography variant="h6" fontWeight="bold" mb={2} color="warning.main">
+              Dernières Sorties
+            </Typography>
+            {exitGroups.length > 0 ? (
+              <List>
+                {exitGroups.slice(0, 8).map((g, index) => (
+                  <React.Fragment key={index}>
+                    <ListItem>
+                      <ListItemIcon>
+                        <ExitIcon color="warning" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={`Sortie ${g.type_sortie || ''} - ${new Date(g.date_sortie).toLocaleString()}`}
+                        secondary={`Facture: ${g.num_facture || '-'} | Articles: ${g.itemsCount} | Total: ${g.total_kg} kg / ${g.total_cartons} ctn`}
+                      />
+                    </ListItem>
+                    {index < exitGroups.slice(0, 8).length - 1 && <Divider />}
+                  </React.Fragment>
+                ))}
+              </List>
+            ) : (
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={6} color="text.secondary">
+                <Inventory sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
+                <Typography variant="h6" gutterBottom>
+                  Aucune sortie
+                </Typography>
+                <Typography variant="body2" textAlign="center">
+                  Les dernières sorties s'afficheront ici
                 </Typography>
               </Box>
             )}
