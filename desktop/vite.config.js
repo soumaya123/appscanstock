@@ -1,14 +1,14 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
+// Configuration Vite adaptée à Electron (chargement file://)
+// base: './' garantit des chemins relatifs pour les assets dans dist/
 export default defineConfig({
+  base: './',
   plugins: [react()],
-  server: {
-    port: 3000,
-    host: true
-  },
   build: {
     outDir: 'dist',
-  }
-})
+    assetsDir: 'assets',
+    sourcemap: false,
+  },
+});
