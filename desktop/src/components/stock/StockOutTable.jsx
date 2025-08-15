@@ -35,7 +35,7 @@ import {
 } from '@mui/icons-material';
 
 import ExitDialog from '../products/ExitDialog'; // 👈 modal pour ajouter entrée stock
-import { stockExitService } from '../../services/api';
+import apiClient, { stockExitService } from '../../services/api';
 import { API_CONFIG } from '../../config';
 
 function StockOutTable({
@@ -58,6 +58,7 @@ function StockOutTable({
   const [entry, setEntry] = useState({ items: [] });
   const [detailOpen, setDetailOpen] = useState(false);
   const [currentGroup, setCurrentGroup] = useState(null);
+  const [selected, setSelected] = useState([]);
 
   const handleSubmit = async (data) => {
     const toIsoDate = (d) => {
@@ -131,6 +132,128 @@ function StockOutTable({
   const handleOpenModal = () => setOpenModal(true);
   const handleCloseModal = () => setOpenModal(false);
 
+  const handleToggle = (key) => {
+    setSelected((prev) => prev.includes(key) ? prev.filter(x => x !== key) : prev.concat(key));
+  };
+
+  // Impression d'un seul groupe via HTML (évite endpoint PDF manquant)
+  const printGroupHtml = (g) => {
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        h2 { margin: 0 0 8px; }
+        .meta { margin: 8px 0 12px; font-size: 12px; }
+        .meta > div { margin: 2px 0; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+        tfoot th, tfoot td { font-weight: bold; }
+      </style>`;
+    const section = generateExitSectionHTML(g);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Bon de Sortie</title>${styles}</head><body>${section}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow && iframe.contentWindow.document;
+    if (doc) { doc.open(); doc.write(html); doc.close(); try { iframe.contentWindow.focus(); } catch {} }
+    else {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); try { w.focus(); } catch {} }
+    }
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 15000);
+  };
+
+  // Impression HTML multi-groupes (compatible .exe)
+  const fmtDateTime = (d) => { try { return new Date(d).toLocaleString(); } catch { return d || '-'; } };
+  const fmtKg = (n) => Number(n || 0).toFixed(3);
+  const fmtInt = (n) => parseInt(n || 0, 10);
+
+  const generateExitSectionHTML = (g) => {
+    const rows = (g.items || []).map((it) => `
+      <tr>
+        <td>${it.product?.code_produit || '-'}</td>
+        <td>${it.product?.nom_produit || '-'}</td>
+        <td style="text-align:right">${fmtKg(it.qte_kg)}</td>
+        <td style="text-align:right">${fmtInt(it.qte_cartons)}</td>
+        <td>${it.prix_vente != null ? it.prix_vente : '-'}</td>
+        <td>${it.remarque ? String(it.remarque).replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''}</td>
+      </tr>
+    `).join('');
+    return `
+      <section class="page">
+        <h2>Bon de Sortie</h2>
+        <div class="meta">
+          <div><strong>Date Sortie:</strong> ${fmtDateTime(g.date_sortie)}</div>
+          <div><strong>Type:</strong> ${g.type_sortie || '-'}</div>
+          <div><strong>Numéro Facture:</strong> ${g.num_facture || '-'}</div>
+          <div><strong>Articles:</strong> ${(g.items || []).length}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Code Produit</th>
+              <th>Nom Produit</th>
+              <th style="text-align:right">Quantité (kg)</th>
+              <th style="text-align:right">Quantité (cartons)</th>
+              <th>Prix Vente</th>
+              <th>Remarque</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <th colspan="2" style="text-align:right">Totaux</th>
+              <th style="text-align:right">${fmtKg(g.total_kg)}</th>
+              <th style="text-align:right">${fmtInt(g.total_cartons)}</th>
+              <th colspan="2"></th>
+            </tr>
+          </tfoot>
+        </table>
+      </section>`;
+  };
+
+  const handlePrintSelected = () => {
+    if (!selected.length) return;
+    const selectedGroups = groups.filter(g => selected.includes(g.key));
+    if (!selectedGroups.length) return;
+
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        h2 { margin: 0 0 8px; }
+        .meta { margin: 8px 0 12px; font-size: 12px; }
+        .meta > div { margin: 2px 0; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+        tfoot th, tfoot td { font-weight: bold; }
+        .page { page-break-after: always; }
+        @media print { .page { break-after: page; } }
+      </style>`;
+    const sections = selectedGroups.map(generateExitSectionHTML).join('\n');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Impression Sorties</title>${styles}</head><body>${sections}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow && iframe.contentWindow.document;
+    if (doc) {
+      doc.open(); doc.write(html); doc.close();
+      try { iframe.contentWindow.focus(); } catch {}
+    } else {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); try { w.focus(); } catch {} }
+      else {
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a'); link.href = url; link.download = 'sorties_print.html';
+        document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
+      }
+    }
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 15000);
+  };
+
   return (
     <Grid xs={12} md={12} style={{ padding: "50px" }}>
       <Paper sx={{ borderRadius: 2 }}>
@@ -139,14 +262,25 @@ function StockOutTable({
             <Typography variant="h6" fontWeight="bold">
               {title}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleOpenModal} // 👈 ouvre le modal
-              sx={{ borderRadius: 2 }}
-            >
-              Nouveau Sortie stock
-            </Button>
+            <Box display="flex" gap={1}>
+              <Button
+                variant="outlined"
+                startIcon={<PrintIcon />}
+                onClick={handlePrintSelected}
+                disabled={selected.length === 0}
+                sx={{ borderRadius: 2 }}
+              >
+                Imprimer sorties
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenModal}
+                sx={{ borderRadius: 2 }}
+              >
+                Nouveau Sortie stock
+              </Button>
+            </Box>
           </Box>
 
           {!maxRows && (
@@ -184,6 +318,7 @@ function StockOutTable({
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell padding="checkbox"></TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Date Sortie</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Type</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Num. Facture</TableCell>
@@ -198,11 +333,12 @@ function StockOutTable({
                 key={g.key}
                     hover
                     sx={{
-                      '&:hover': {
-                        bgcolor: 'action.hover'
-                      }
+                      '&:hover': { bgcolor: 'action.hover' }
                     }}
                   >
+                    <TableCell padding="checkbox">
+                      <input type="checkbox" checked={selected.includes(g.key)} onChange={() => handleToggle(g.key)} />
+                    </TableCell>
                     <TableCell>{g.date_sortie ? new Date(g.date_sortie).toLocaleString() : '-'}</TableCell>
                     <TableCell>{g.type_sortie}</TableCell>
                     <TableCell>
@@ -219,13 +355,7 @@ function StockOutTable({
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Imprimer sortie">
-                        <IconButton size="small" onClick={() => {
-                          const dateOnly = g.date_sortie ? new Date(g.date_sortie).toISOString().slice(0,10) : '';
-                          const url = g.num_facture && g.num_facture !== '-' 
-                            ? `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?num_facture=${encodeURIComponent(g.num_facture)}`
-                            : `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?type_sortie=${encodeURIComponent(g.type_sortie || '')}&date_sortie=${encodeURIComponent(dateOnly)}`;
-                          window.open(url, '_blank');
-                        }}>
+                        <IconButton size="small" onClick={() => printGroupHtml(g)}>
                           <PrintIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -305,14 +435,7 @@ function StockOutTable({
           <Button onClick={() => setDetailOpen(false)}>Fermer</Button>
           <Button
             variant="outlined"
-            onClick={() => {
-              if (!currentGroup) return;
-              const dateOnly = currentGroup.date_sortie ? new Date(currentGroup.date_sortie).toISOString().slice(0,10) : '';
-              const url = currentGroup.num_facture && currentGroup.num_facture !== '-'
-                ? `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?num_facture=${encodeURIComponent(currentGroup.num_facture)}`
-                : `${API_CONFIG.BASE_URL}/reports/pdf/stock-exit?type_sortie=${encodeURIComponent(currentGroup.type_sortie || '')}&date_sortie=${encodeURIComponent(dateOnly)}`;
-              window.open(url, '_blank');
-            }}
+            onClick={() => currentGroup && printGroupHtml(currentGroup)}
           >
             Imprimer sortie
           </Button>

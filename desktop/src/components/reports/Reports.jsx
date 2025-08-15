@@ -15,7 +15,7 @@ import {
   TablePagination,
   MenuItem,
 } from '@mui/material';
-import { Search as SearchIcon, Refresh as RefreshIcon, Print as PrintIcon, GetApp as ExportIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Refresh as RefreshIcon, GetApp as ExportIcon } from '@mui/icons-material';
 import apiClient, { productService } from '../../services/api';
 
 function Reports() {
@@ -76,28 +76,32 @@ function Reports() {
     return filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   }, [filtered, page, rowsPerPage]);
 
-  const handleExportCSV = () => {
-    const headers = ['Code Produit','Nom Produit','Entrées KG','Entrées Cartons','Sorties KG','Sorties Cartons','Stock KG','Stock Cartons'];
-    const rows = filtered.map(item => [
-      item.product?.code_produit || '',
-      item.product?.nom_produit || '',
-      item.total_entrees_kg ?? 0,
-      item.total_entrees_cartons ?? 0,
-      item.total_sorties_kg ?? 0,
-      item.total_sorties_cartons ?? 0,
-      item.stock_actuel_kg ?? 0,
-      item.stock_actuel_cartons ?? 0,
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `rapport_stock_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleExportXlsx = async () => {
+    const loadXLSX = async () => {
+      if (typeof window !== 'undefined' && window.XLSX) return window.XLSX;
+      const mod = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+      return (typeof window !== 'undefined' && window.XLSX) ? window.XLSX : (mod.XLSX || mod.default || mod);
+    };
+    try {
+      const XLSX = await loadXLSX();
+      const rows = filtered.map(item => ({
+        code_produit: item.product?.code_produit || '',
+        nom_produit: item.product?.nom_produit || '',
+        entrees_kg: item.total_entrees_kg ?? 0,
+        entrees_cartons: item.total_entrees_cartons ?? 0,
+        sorties_kg: item.total_sorties_kg ?? 0,
+        sorties_cartons: item.total_sorties_cartons ?? 0,
+        stock_kg: item.stock_actuel_kg ?? 0,
+        stock_cartons: item.stock_actuel_cartons ?? 0,
+      }));
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Rapport');
+      XLSX.writeFile(wb, `rapport_stock_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`);
+    } catch (err) {
+      console.error('Export XLSX échoué:', err);
+      alert('Export XLSX échoué');
+    }
   };
 
   const handlePrint = () => {
@@ -147,8 +151,7 @@ function Reports() {
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6" fontWeight="bold">Rapport par Produit</Typography>
             <Box display="flex" gap={1}>
-              <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExportCSV} disabled={loading}>Exporter CSV</Button>
-              <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint} disabled={loading}>Imprimer</Button>
+              <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExportXlsx} disabled={loading}>Exporter</Button>
             </Box>
           </Box>
 

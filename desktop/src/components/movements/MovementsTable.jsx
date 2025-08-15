@@ -4,7 +4,7 @@ import {
   TextField, InputAdornment, Grid, Chip, TablePagination, Button, Dialog,
   DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, MenuItem
 } from '@mui/material';
-import { Search as SearchIcon, Visibility as ViewIcon, Print as PrintIcon, GetApp as ExportIcon, Publish as ImportIcon, Close as CloseIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Visibility as ViewIcon, Print as PrintIcon, GetApp as ExportIcon, Close as CloseIcon } from '@mui/icons-material';
 import { movementService, stockEntryService, stockExitService } from '../../services/api';
 
 // Affiche les mouvements et le solde d'un produit
@@ -17,7 +17,6 @@ function MovementsTable({ product, products = [] }) {
   const [selectedProduct, setSelectedProduct] = useState(product || null);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState(null);
-  const fileInputRef = React.useRef(null);
 
   useEffect(() => {
     // Laisser l'utilisateur choisir le produit (aucune auto-sélection)
@@ -104,128 +103,39 @@ function MovementsTable({ product, products = [] }) {
             </TextField>
 
             <Box sx={{ flexGrow: 1 }} />
-            <Button variant="outlined" size="small" startIcon={<ExportIcon />} onClick={() => {
-              // Export CSV des mouvements filtrés
-              const rows = filtered;
-              const headers = ['id','date','type','kg_avant','kg_mouvement','kg_apres','cartons_avant','cartons_mouvement','cartons_apres','reference_type','reference_id'];
-              const csv = [headers.join(',')].concat(
-                rows.map(m => [
-                  m.id,
-                  new Date(m.created_at).toISOString(),
-                  m.type_mouvement,
-                  m.qte_kg_avant,
-                  m.qte_kg_mouvement,
-                  m.qte_kg_apres,
-                  m.qte_cartons_avant,
-                  m.qte_cartons_mouvement,
-                  m.qte_cartons_apres,
-                  m.reference_type || '',
-                  m.reference_id || ''
-                ].join(','))
-              ).join('\n');
-              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `mouvements_${selectedProduct?.code_produit || selectedProduct?.name || 'produit'}.csv`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            }}>Exporter CSV</Button>
-            <Button variant="outlined" size="small" startIcon={<ImportIcon />} onClick={() => fileInputRef.current?.click()}>Importer CSV</Button>
-            <input type="file" accept=".csv" ref={fileInputRef} style={{ display: 'none' }} onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const text = await file.text();
-              const lines = text.split(/\r?\n/).filter(Boolean);
-              if (lines.length < 2) return;
-              const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-              const idx = (name) => headers.indexOf(name);
-              // Colonnes attendues: type,product_id,qte_kg,qte_cartons,date,doc,remarque
-              for (let i = 1; i < lines.length; i++) {
-                const cols = lines[i].split(',');
-                if (!cols.length) continue;
-                const rawType = (cols[idx('type')] || '').trim().toLowerCase();
-                const productId = Number(cols[idx('product_id')] || 0);
-                const qteKg = Number(cols[idx('qte_kg')] || 0);
-                const qteCartons = Number(cols[idx('qte_cartons')] || 0);
-                const dateStr = (cols[idx('date')] || '').trim();
-                const doc = (cols[idx('doc')] || '').trim();
-                const remarque = (cols[idx('remarque')] || '').trim() || null;
-                if (!productId) continue;
-                const toIso = (d) => d ? (/T\d{2}:\d{2}/.test(d) ? d : `${d}T00:00:00`) : null;
-                try {
-                  if (rawType.startsWith('entree')) {
-                    await stockEntryService.create({
-                      date_reception: toIso(dateStr) || new Date().toISOString(),
-                      num_reception: doc || `IMP-${Date.now()}`,
-                      product_id: productId,
-                      qte_kg: qteKg,
-                      qte_cartons: qteCartons,
-                      remarque,
-                    });
-                  } else if (rawType.startsWith('sortie')) {
-                    const subtype = rawType.includes(':') ? rawType.split(':')[1] : 'vente';
-                    await stockExitService.create({
-                      date_sortie: toIso(dateStr) || new Date().toISOString(),
-                      num_facture: doc || null,
-                      type_sortie: subtype,
-                      product_id: productId,
-                      qte_kg: qteKg,
-                      qte_cartons: qteCartons,
-                      remarque,
-                    });
-                  }
-                } catch (err) {
-                  console.error('Erreur import ligne', i, err?.response?.data || err);
-                }
+            <Button variant="outlined" size="small" startIcon={<ExportIcon />} onClick={async () => {
+              // Export XLSX des mouvements filtrés
+              const loadXLSX = async () => {
+                if (typeof window !== 'undefined' && window.XLSX) return window.XLSX;
+                const mod = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+                return (typeof window !== 'undefined' && window.XLSX) ? window.XLSX : (mod.XLSX || mod.default || mod);
+              };
+              try {
+                const XLSX = await loadXLSX();
+                const rows = filtered.map(m => ({
+                  id: m.id,
+                  date: new Date(m.created_at).toISOString(),
+                  type: m.type_mouvement,
+                  kg_avant: m.qte_kg_avant,
+                  kg_mouvement: m.qte_kg_mouvement,
+                  kg_apres: m.qte_kg_apres,
+                  cartons_avant: m.qte_cartons_avant,
+                  cartons_mouvement: m.qte_cartons_mouvement,
+                  cartons_apres: m.qte_cartons_apres,
+                  produit: selectedProduct ? (selectedProduct.code_produit || selectedProduct.name) : (m.product?.code_produit || m.product?.name || m.product_id),
+                  reference: `${m.reference_type || ''} #${m.reference_id || ''}`
+                }));
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Mouvements');
+                const name = `mouvements_${selectedProduct?.code_produit || selectedProduct?.name || 'tous'}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`;
+                XLSX.writeFile(wb, name);
+              } catch (err) {
+                console.error('Export XLSX échoué:', err);
+                alert('Export XLSX échoué');
               }
-              // Recharger les mouvements après import
-              if (selectedProduct?.id) {
-                try {
-                  const data = await movementService.getByProduct(selectedProduct.id);
-                  setMovements(Array.isArray(data) ? data : []);
-                } catch {}
-              }
-              e.target.value = '';
-            }} />
-            <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={() => {
-              // Impression
-              const w = window.open('', '_blank');
-              if (!w) return;
-              const rows = filtered;
-              const html = `
-                <html><head><title>Impression Mouvements</title>
-                <style>table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px;text-align:right}th{text-align:left}</style>
-                </head><body>
-                <h3>Mouvements - ${selectedProduct ? (selectedProduct.nom_produit || selectedProduct.name || '') : 'Tous les produits'}</h3>
-                <table>
-                <thead><tr>
-                  <th>Date</th>${selectedProduct ? '' : '<th>Produit</th>'}<th>Type</th><th>Avant (kg)</th><th>Mouv. (kg)</th><th>Après (kg)</th>
-                  <th>Avant (cartons)</th><th>Mouv. (cartons)</th><th>Après (cartons)</th><th>Référence</th>
-                </tr></thead>
-                <tbody>
-                ${rows.map(m => `
-                  <tr>
-                    <td style="text-align:left">${new Date(m.created_at).toLocaleString()}</td>
-                    ${selectedProduct ? '' : `<td style="text-align:left">${m.product?.code_produit || m.product?.name || m.product_id}</td>`}
-                    <td style="text-align:left">${m.type_mouvement}</td>
-                    <td>${m.qte_kg_avant}</td>
-                    <td>${m.qte_kg_mouvement}</td>
-                    <td>${m.qte_kg_apres}</td>
-                    <td>${m.qte_cartons_avant}</td>
-                    <td>${m.qte_cartons_mouvement}</td>
-                    <td>${m.qte_cartons_apres}</td>
-                    <td style="text-align:left">${m.reference_type || ''} #${m.reference_id || ''}</td>
-                  </tr>`).join('')}
-                </tbody></table>
-                <script>window.print();</script>
-                </body></html>`;
-              w.document.write(html);
-              w.document.close();
-            }}>Imprimer</Button>
-          </Box>
+            }}>Exporter</Button>
+            </Box>
 
           <Table>
             <TableHead>

@@ -46,6 +46,10 @@ function Adjustments() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
+  const productFilterOptions = useMemo(() => [
+    { id: '__all__', __all: true, code_produit: 'Tous', nom_produit: 'les produits' },
+    ...(products || [])
+  ], [products]);
 
   const fetchProducts = async () => {
     try {
@@ -60,7 +64,7 @@ function Adjustments() {
     setLoading(true);
     try {
       const params = {};
-      if (filterProduct?.id) params.product_id = filterProduct.id;
+      if (filterProduct && !filterProduct.__all && filterProduct.id) params.product_id = filterProduct.id;
       if (filterType) params.type_ajustement = filterType;
       const list = await adjustmentService.getAll(params);
       setAdjustments(Array.isArray(list) ? list : []);
@@ -145,28 +149,33 @@ function Adjustments() {
     filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
   ), [filtered, page, rowsPerPage]);
 
-  const handleExportCSV = () => {
-    const headers = ['Date','Produit','Type','Δ KG','Δ Cartons','Avant KG','Avant Cartons','Après KG','Après Cartons','Raison','Référence'];
-    const rows = adjustments.map(a => [
-      new Date(a.date_ajustement).toLocaleString(),
-      `${a.product?.code_produit || ''} ${a.product?.nom_produit || ''}`,
-      a.type_ajustement,
-      a.type_ajustement === 'increase' ? (a.qte_kg || 0) : -(a.qte_kg || 0),
-      a.type_ajustement === 'increase' ? (a.qte_cartons || 0) : -(a.qte_cartons || 0),
-      '', '', '', '', // champs avant/après non renvoyés ici; gardés pour une évolution backend ultérieure
-      a.raison || '',
-      a.reference_document || ''
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ajustements_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const loadXLSX = async () => {
+    if (typeof window !== 'undefined' && window.XLSX) return window.XLSX;
+    const mod = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+    return (typeof window !== 'undefined' && window.XLSX) ? window.XLSX : (mod.XLSX || mod.default || mod);
+  };
+
+  const handleExportXLSX = async () => {
+    try {
+      const XLSX = await loadXLSX();
+      const data = adjustments.map(a => ({
+        date_ajustement: new Date(a.date_ajustement).toLocaleString(),
+        code_produit: a.product?.code_produit || '',
+        nom_produit: a.product?.nom_produit || '',
+        type_ajustement: a.type_ajustement,
+        delta_kg: a.type_ajustement === 'increase' ? (a.qte_kg || 0) : -(a.qte_kg || 0),
+        delta_cartons: a.type_ajustement === 'increase' ? (a.qte_cartons || 0) : -(a.qte_cartons || 0),
+        raison: a.raison || '',
+        reference_document: a.reference_document || ''
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ajustements');
+      XLSX.writeFile(wb, `ajustements_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.xlsx`);
+    } catch (err) {
+      console.error('Export XLSX échoué:', err);
+      alert('Export XLSX échoué');
+    }
   };
 
   return (
@@ -179,8 +188,8 @@ function Adjustments() {
 
           {/* Actions */}
           <Box display="flex" gap={1} mb={2} justifyContent="flex-end">
-            <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExportCSV} disabled={loading}>
-              Export CSV
+            <Button variant="outlined" startIcon={<ExportIcon />} onClick={handleExportXLSX} disabled={loading}>
+              Exporter
             </Button>
             <Button
               variant="contained"
@@ -198,8 +207,13 @@ function Adjustments() {
           {/* Filtres liste */}
           <Box display="flex" gap={2} alignItems="center" mb={2}>
             <Autocomplete
-              options={products}
-              getOptionLabel={(o) => `${o.code_produit || o.code} - ${o.nom_produit || o.name}`}
+              options={productFilterOptions}
+              getOptionLabel={(o) => o?.__all ? 'Tous les produits' : `${o.code_produit || o.code} - ${o.nom_produit || o.name}`}
+              isOptionEqualToValue={(o, v) => {
+                if (!o || !v) return o === v;
+                if (o.__all || v.__all) return !!o.__all === !!v.__all;
+                return String(o.id) === String(v.id);
+              }}
               value={filterProduct}
               onChange={(e, v) => { setFilterProduct(v); setPage(0); }}
               renderInput={(params) => <TextField {...params} label="Filtrer par produit" size="small" />}

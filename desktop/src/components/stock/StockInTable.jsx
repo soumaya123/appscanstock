@@ -36,7 +36,7 @@ import {
 } from '@mui/icons-material';
 
 import EntryDialog from '../products/EntryDialog'; // 👈 modal pour ajouter entrée stock
-import { stockEntryService } from '../../services/api';
+import apiClient, { stockEntryService } from '../../services/api';
 import { API_CONFIG } from '../../config';
 
 function StockInTable({
@@ -124,12 +124,178 @@ function StockInTable({
     else setSelected(filteredList.map(e => e.num_reception));
   };
 
+  const printReception = async (numReception) => {
+    try {
+      const response = await apiClient.get('/reports/pdf/stock-reception', {
+        params: { num_reception: numReception },
+        responseType: 'blob'
+      });
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank');
+      if (!win) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `reception_${numReception}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (err) {
+      console.error('Erreur impression réception:', err?.response?.data || err);
+      alert('Impossible de générer le PDF. Vérifiez votre connexion et réessayez.');
+    }
+  };
+
+  // Impression multi-bons en HTML (compatible navigateur et build .exe)
+  const fmtDateTime = (d) => {
+    try { return new Date(d).toLocaleString(); } catch { return d || '-'; }
+  };
+  const fmtDate = (d) => {
+    try { return new Date(d).toLocaleDateString(); } catch { return d || '-'; }
+  };
+  const fmtKg = (n) => Number(n || 0).toFixed(3);
+  const fmtInt = (n) => parseInt(n || 0, 10);
+
+  const generateReceptionSectionHTML = (r) => {
+    const rows = (r.items || []).map((it) => `
+      <tr>
+        <td>${(it.product?.code_produit || '-')}</td>
+        <td>${(it.product?.nom_produit || '-')}</td>
+        <td style="text-align:right">${fmtKg(it.qte_kg)}</td>
+        <td style="text-align:right">${fmtInt(it.qte_cartons)}</td>
+        <td>${it.date_peremption ? fmtDate(it.date_peremption) : '-'}</td>
+        <td>${it.remarque ? String(it.remarque).replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''}</td>
+      </tr>
+    `).join('');
+    return `
+      <section class="page">
+        <h2>Bon de Réception</h2>
+        <div class="meta">
+          <div><strong>Date Réception:</strong> ${fmtDateTime(r.date_reception)}</div>
+          <div><strong>Numéro Réception:</strong> ${r.num_reception}</div>
+          <div><strong>Numéro Facture:</strong> ${r.num_facture || '-'}</div>
+          <div><strong>Numéro Packing Liste:</strong> ${r.num_packing_liste || '-'}</div>
+          <div><strong>Numéro Carnet:</strong> ${r.num_reception_carnet || '-'}</div>
+          <div><strong>Articles:</strong> ${(r.items || []).length}</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Code Produit</th>
+              <th>Nom Produit</th>
+              <th style="text-align:right">Quantité (kg)</th>
+              <th style="text-align:right">Quantité (cartons)</th>
+              <th>Date Péremption</th>
+              <th>Remarque</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <th colspan="2" style="text-align:right">Totaux</th>
+              <th style="text-align:right">${fmtKg(r.total_kg)}</th>
+              <th style="text-align:right">${fmtInt(r.total_cartons)}</th>
+              <th colspan="2"></th>
+            </tr>
+          </tfoot>
+        </table>
+      </section>`;
+  };
+
+  const printReceptionHtml = (r) => {
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        h2 { margin: 0 0 8px; }
+        .meta { margin: 8px 0 12px; font-size: 12px; }
+        .meta > div { margin: 2px 0; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+        tfoot th, tfoot td { font-weight: bold; }
+      </style>`;
+    const section = generateReceptionSectionHTML(r);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8" /><title>Bon de Réception</title>${styles}</head><body>${section}<script>window.onload=function(){window.print();}<\/script></body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow && iframe.contentWindow.document;
+    if (doc) { doc.open(); doc.write(html); doc.close(); try { iframe.contentWindow.focus(); } catch {} }
+    else {
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); try { w.focus(); } catch {} }
+    }
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 15000);
+  };
+
   const handlePrintSelected = () => {
     if (!selected.length) return;
-    selected.forEach((num) => {
-      const url = `${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(num)}`;
-      window.open(url, '_blank');
-    });
+    const selectedReceptions = receptions.filter(r => selected.includes(r.num_reception));
+    if (!selectedReceptions.length) return;
+
+    const styles = `
+      <style>
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        h2 { margin: 0 0 8px; }
+        .meta { margin: 8px 0 12px; font-size: 12px; }
+        .meta > div { margin: 2px 0; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        th { background: #f5f5f5; text-align: left; }
+        tfoot th, tfoot td { font-weight: bold; }
+        .page { page-break-after: always; }
+        @media print {
+          .page { break-after: page; }
+        }
+      </style>`;
+    const sections = selectedReceptions.map(generateReceptionSectionHTML).join('\n');
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8" />
+<title>Impression Réceptions</title>
+${styles}
+</head>
+<body>
+${sections}
+<script>window.onload = function(){ window.print(); }<\/script>
+</body></html>`;
+
+    // Impression via iframe caché (compatible .exe)
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow && iframe.contentWindow.document;
+    if (doc) {
+      doc.open();
+      doc.write(html);
+      doc.close();
+      // focus + print si nécessaire
+      try { iframe.contentWindow.focus(); } catch {}
+    } else {
+      // Fallback fenêtre
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        try { w.focus(); } catch {}
+      } else {
+        // Fallback téléchargement
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'receptions_print.html';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    }
+
+    // Nettoyage iframe après un délai
+    setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 15000);
   };
   // Regrouper par numéro de réception
   const receptionsMap = (entries || []).reduce((acc, e) => {
@@ -188,7 +354,7 @@ function StockInTable({
               disabled={selected.length === 0}
               sx={{ borderRadius: 2 }}
             >
-              Imprimer bons
+              Imprimer entries
             </Button>
             <Button
                 variant="contained"
@@ -288,7 +454,7 @@ function StockInTable({
                 </IconButton>
                 </Tooltip>
                 <Tooltip title="Imprimer réception">
-                <IconButton size="small" onClick={() => window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(r.num_reception)}`, '_blank')}>
+                <IconButton size="small" onClick={() => printReceptionHtml(r)}>
                 <PrintIcon fontSize="small" />
                 </IconButton>
                 </Tooltip>
@@ -369,7 +535,7 @@ function StockInTable({
           <Button
             variant="outlined"
             startIcon={<PrintIcon />}
-            onClick={() => currentReception && window.open(`${API_CONFIG.BASE_URL}/reports/pdf/stock-reception?num_reception=${encodeURIComponent(currentReception.num_reception)}`, '_blank')}
+            onClick={() => currentReception && printReceptionHtml(currentReception)}
             disabled={!currentReception}
           >
             Imprimer réception

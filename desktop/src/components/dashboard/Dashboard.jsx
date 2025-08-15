@@ -159,7 +159,7 @@ function Dashboard({
         </Grid>
 
         {/* Dernières sorties (groupées) */}
-        <Grid item xs={12} md={2}></Grid>
+        {/* <Grid item xs={12} md={2}></Grid> */}
         <Grid item xs={12} md={6}>
           <Paper 
             elevation={0} 
