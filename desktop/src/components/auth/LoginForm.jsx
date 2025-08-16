@@ -34,7 +34,7 @@ function LoginForm({ onLogin }) {
 
       // Vérification de la date
       if (now > expiryDate) {
-        setError("⛔ La période d'essai a expiré. Vous n'avez plus le droit de vous connecter.");
+        setError("⛔ Si vous avez un problème, veuillez contacter itesLab.");
         setLoading(false);
         return;
       }
