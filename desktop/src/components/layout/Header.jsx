@@ -51,7 +51,6 @@ function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
         </IconButton>
         
         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-          Système de Gestion de Stock
         </Typography>
 
         <Box display="flex" alignItems="center" gap={1}>
