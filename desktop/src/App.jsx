@@ -11,7 +11,13 @@ import { useProducts, useStockEntries, useStockExits, useDashboardStats } from '
 
 // Services
 import { authService } from './services/api';
+import logo from './assets/smart_erp.png';
 
+// Changer le favicon dynamiquement
+const link = document.querySelector("link[rel~='icon']");
+if (link) {
+  link.href = logo;
+}
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
