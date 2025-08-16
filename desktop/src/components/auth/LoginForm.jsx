@@ -9,7 +9,6 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Login as LoginIcon } from '@mui/icons-material';
 import logo from '../../assets/smart_erp.png';
 
 import { authService } from '../../services/api';
@@ -19,16 +18,31 @@ function LoginForm({ onLogin }) {
   const [password, setPassword] = useState('admin123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  console.log("username",username,"pwd",password)
+
+  // ⚡ Définis la date limite (aujourd'hui + 5 jours)
+  const expiryDate = new Date("2025-08-16T23:59:59");
+
+  expiryDate.setDate(expiryDate.getDate() + 5);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-   
-    try {
-      await authService.login(username, password);
 
+    try {
+      const now = new Date();
+
+      // Vérification de la date
+      if (now > expiryDate) {
+        setError("⛔ La période d'essai a expiré. Vous n'avez plus le droit de vous connecter.");
+        setLoading(false);
+        return;
+      }
+
+      // Authentification
+      await authService.login(username, password);
       await onLogin({ username, password });
+
     } catch (err) {
       setError('Erreur de connexion. Vérifiez vos identifiants.');
       console.error('Erreur de connexion:', err);
@@ -48,22 +62,19 @@ function LoginForm({ onLogin }) {
         justifyContent: 'center'
       }}>
         <Paper elevation={3} sx={{ p: 4, width: '100%', borderRadius: 2 }}>
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-          }}>
-            <Box sx={{
-              width: 127,
-              height: 127,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              
-            }}
-            component="img" src={logo} alt="SmaertStock"
-            >
-            </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Box
+              sx={{
+                width: 127,
+                height: 127,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              component="img"
+              src={logo}
+              alt="SmartStock"
+            />
             <Typography variant="subtitle1" color="text.secondary">
               Système de Gestion de Stock Avancé
             </Typography>
