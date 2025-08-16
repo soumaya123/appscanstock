@@ -10,6 +10,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Login as LoginIcon } from '@mui/icons-material';
+import logo from '../../assets/smart_erp.png';
+
 import { authService } from '../../services/api';
 
 function LoginForm({ onLogin }) {
@@ -50,23 +52,18 @@ function LoginForm({ onLogin }) {
             display: 'flex', 
             flexDirection: 'column', 
             alignItems: 'center', 
-            mb: 3 
           }}>
             <Box sx={{
-              width: 80,
-              height: 80,
-              borderRadius: '50%',
-              bgcolor: 'primary.main',
+              width: 127,
+              height: 127,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              mb: 2
-            }}>
-              <LoginIcon sx={{ fontSize: 40, color: 'white' }} />
+              
+            }}
+            component="img" src={logo} alt="SmaertStock"
+            >
             </Box>
-            <Typography component="h1" variant="h4" fontWeight="bold">
-              StockERP
-            </Typography>
             <Typography variant="subtitle1" color="text.secondary">
               Système de Gestion de Stock Avancé
             </Typography>
@@ -117,12 +114,6 @@ function LoginForm({ onLogin }) {
               )}
             </Button>
           </form>
-          
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              Version 1.0.0 - Développé avec React & Material-UI
-            </Typography>
-          </Box>
         </Paper>
       </Box>
     </Container>

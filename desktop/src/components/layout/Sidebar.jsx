@@ -21,6 +21,7 @@ import {
   Warning as WarningIcon,
   Settings as SettingsIcon,
 } from '@mui/icons-material';
+import logo from '../../assets/smart_erp.png';
 
 const drawerWidth = 260;
 
@@ -56,25 +57,9 @@ function Sidebar({ open, currentView, onViewChange }) {
     >
       <Toolbar>
         <Box display="flex" alignItems="center" width="100%">
-          <Box sx={{
-            width: 40,
-            height: 40,
-            borderRadius: '8px',
-            bgcolor: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mr: 2
-          }}>
-            <InventoryIcon sx={{ color: 'white', fontSize: 24 }} />
-          </Box>
           <Box>
-            <Typography variant="h6" color="primary.main" fontWeight="bold">
-              StockERP
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              v1.0.0
-            </Typography>
+            <Box component="img" src={logo} alt="SmaertStock" sx={{ height: 90,width:90, display: 'block' }} />
+           
           </Box>
         </Box>
       </Toolbar>

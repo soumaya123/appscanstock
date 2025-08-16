@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect rx="8" width="40" height="40" fill="#1976d2"/>
+  <path d="M12 12h16v4H12zm0 6h16v4H12zm0 6h16v4H12z" fill="#fff"/>
+  <text x="54" y="26" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700" fill="#1976d2">StockERP</text>
+</svg>
