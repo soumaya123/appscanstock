@@ -16,8 +16,9 @@ import {
   Settings as SettingsIcon,
   ExitToApp as LogoutIcon,
   Notifications as NotificationsIcon,
+  DeleteForever as DeleteForeverIcon,
 } from '@mui/icons-material';
-import { authService } from '../../services/api';
+import apiClient, { authService } from '../../services/api';
 
 function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -26,6 +27,26 @@ function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
   const handleLogout = () => {
     authService.logout();
     window.location.reload();
+  };
+
+  const handlePurgeTransactions = async () => {
+    const ok = window.confirm(
+      "Supprimer toutes les transactions (entrées, sorties, mouvements, ajustements) et réinitialiser les stocks ? Les produits seront conservés."
+    );
+    if (!ok) return;
+    try {
+      await apiClient.delete('/maintenance/purge-transactions');
+      alert('Transactions supprimées. Les stocks ont été réinitialisés.');
+      window.location.reload();
+    } catch (e) {
+      if (e?.response?.status === 403) {
+        alert("Action réservée à l'administrateur.");
+      } else if (e?.response?.data?.detail) {
+        alert(`Erreur: ${e.response.data.detail}`);
+      } else {
+        alert('Erreur lors de la purge des transactions.');
+      }
+    }
   };
 
   return (
@@ -130,6 +151,10 @@ function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
             <MenuItem onClick={() => setAnchorEl(null)}>
               <SettingsIcon sx={{ mr: 1 }} fontSize="small" />
               Paramètres
+            </MenuItem>
+            <MenuItem onClick={handlePurgeTransactions}>
+              <DeleteForeverIcon sx={{ mr: 1, color: 'error.main' }} fontSize="small" />
+              Purger les transactions
             </MenuItem>
             <MenuItem onClick={handleLogout}>
               <LogoutIcon sx={{ mr: 1 }} fontSize="small" />

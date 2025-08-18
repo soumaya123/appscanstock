@@ -63,14 +63,9 @@ class StockEntry(Base):
     num_reception_carnet = Column(String(50), nullable=True)
     num_facture = Column(String(50), nullable=True)
     num_packing_liste = Column(String(50), nullable=True)
-    
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    product = relationship("Product")
-    
-    qte_kg = Column(Float, default=0.0)
-    qte_cartons = Column(Integer, default=0)
-    date_peremption = Column(DateTime(timezone=True), nullable=True)
-    remarque = Column(Text, nullable=True)
+
+    # Entête: plus de produit/quantités ici. Les lignes sont dans StockEntryItem
+    items = relationship("StockEntryItem", back_populates="entry", cascade="all, delete-orphan")
     
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_user = relationship("User")
@@ -82,13 +77,10 @@ class StockExit(Base):
     id = Column(Integer, primary_key=True, index=True)
     date_sortie = Column(DateTime(timezone=True), nullable=False)
     num_facture = Column(String(50), nullable=True)
-    
-    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
-    product = relationship("Product")
-    
-    qte_kg = Column(Float, default=0.0)
-    qte_cartons = Column(Integer, default=0)
-    date_peremption = Column(DateTime(timezone=True), nullable=True)
+
+    # Entête: lignes dans StockExitItem
+    items = relationship("StockExitItem", back_populates="exit", cascade="all, delete-orphan")
+
     prix_vente = Column(Float, nullable=True)
     
     # Types de sortie
@@ -98,6 +90,36 @@ class StockExit(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_user = relationship("User")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class StockEntryItem(Base):
+    __tablename__ = "stock_entry_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    entry_id = Column(Integer, ForeignKey("stock_entries.id"), nullable=False)
+    entry = relationship("StockEntry", back_populates="items")
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product = relationship("Product")
+
+    qte_kg = Column(Float, default=0.0)
+    qte_cartons = Column(Integer, default=0)
+    date_peremption = Column(DateTime(timezone=True), nullable=True)
+    remarque = Column(Text, nullable=True)
+
+class StockExitItem(Base):
+    __tablename__ = "stock_exit_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    exit_id = Column(Integer, ForeignKey("stock_exits.id"), nullable=False)
+    exit = relationship("StockExit", back_populates="items")
+
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    product = relationship("Product")
+
+    qte_kg = Column(Float, default=0.0)
+    qte_cartons = Column(Integer, default=0)
+    date_peremption = Column(DateTime(timezone=True), nullable=True)
+    remarque = Column(Text, nullable=True)
 
 class StockMovement(Base):
     __tablename__ = "stock_movements"

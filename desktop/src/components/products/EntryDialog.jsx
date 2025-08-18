@@ -36,6 +36,7 @@ function EntryDialog({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    console.log('entry',e)
     onSubmit?.(entry); // envoie l'objet complet
   };
 
@@ -51,7 +52,6 @@ function EntryDialog({
       expirationDate: '',
       remarks: ''
     }];
-    console.log('okkkkkk')
     onChange?.({ ...entry, items: newItems });
   };
 

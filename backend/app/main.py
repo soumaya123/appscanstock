@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base
-from app.routers import auth, products, stock_entries, stock_exits, reports, adjustments
+from app.routers import auth, products, stock_entries, stock_exits, reports, adjustments, maintenance
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -23,16 +23,18 @@ app = FastAPI(
 # Configuration CORS
 cors_origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8081,http://192.168.100.156:3000"
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,http://localhost:8081,http://192.168.100.156:3000"
 )
 origins = [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 # Autoriser aussi l'origine 'null' utilisée par le contexte file:// d'Electron
 if 'null' not in origins:
     origins.append('null')
 
-# En mode développement, permettre tous les origins
+# En mode développement, ajouter les origins du dev-server (Vite 5173)
 if os.getenv("ENVIRONMENT", "development") == "development":
-    origins = ["*"]
+    for dev_origin in ["http://localhost:5173", "http://127.0.0.1:5173"]:
+        if dev_origin not in origins:
+            origins.append(dev_origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +54,7 @@ app.include_router(stock_entries.router, prefix="/api/stock-entries", tags=["Sto
 app.include_router(stock_exits.router, prefix="/api/stock-exits", tags=["Stock Exits"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(adjustments.router, prefix="/api/adjustments", tags=["Stock Adjustments"])
+app.include_router(maintenance.router, prefix="/api/maintenance", tags=["Maintenance"])
 
 @app.get("/")
 async def root():
