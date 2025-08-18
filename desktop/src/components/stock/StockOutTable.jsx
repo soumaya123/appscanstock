@@ -68,25 +68,23 @@ function StockOutTable({
     };
 
     try {
-      const today = new Date().toISOString().slice(0,10);
-      const base = {
+      const today = new Date().toISOString().slice(0, 10);
+      const payload = {
         date_sortie: toIsoDate(data.exitDate || today),
         num_facture: data.invoiceNumber || null,
         type_sortie: data.type,
-      };
-      for (const item of data.items || []) {
-        if (!item.productId) continue;
-        const payload = {
-          ...base,
+        remarque: data.remarks || null,
+        prix_vente: data.salePrice || null,
+        items: (data.items || []).map((item) => ({
           product_id: item.productId,
           qte_kg: Number(item.quantityKg || 0),
           qte_cartons: Number(item.quantityCartons || 0),
           date_peremption: toIsoDate(item.expirationDate),
-          prix_vente: item.salePrice || null,
           remarque: item.remarks || null,
-        };
-        await stockExitService.create(payload);
-      }
+        })),
+      };
+
+      await stockExitService.create(payload);
       setOpenModal(false);
       setEntry({ items: [] });
       if (typeof onAdd === 'function') onAdd();
@@ -94,6 +92,7 @@ function StockOutTable({
       console.error('Erreur création sortie stock:', err?.response?.data || err);
     }
   };
+
   // Regroupement des sorties: par numéro de facture si dispo, sinon par type + date (YYYY-MM-DD)
   const groupsMap = (exits || []).reduce((acc, x) => {
     const dateOnly = x.date_sortie ? new Date(x.date_sortie).toISOString().slice(0,10) : '';

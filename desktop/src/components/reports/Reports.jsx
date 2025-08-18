@@ -33,8 +33,18 @@ function Reports() {
     setError(null);
     try {
       const res = await apiClient.get('/reports/stock-summary');
+      console.log('Rapports stock:', res.data);
       const list = Array.isArray(res.data) ? res.data : [];
-      setData(list);
+
+      setData(list.map(item => ({
+        product: item.product,
+        total_entrees_kg: item.total_entrees_kg,
+        total_entrees_cartons: item.total_entrees_cartons,
+        total_sorties_kg: item.total_sorties_kg,
+        total_sorties_cartons: item.total_sorties_cartons,
+        stock_actuel_kg: item.stock_actuel_kg,
+        stock_actuel_cartons: item.stock_actuel_cartons,
+      })));
     } catch (e) {
       console.error('Erreur chargement rapports:', e);
       setError('Erreur lors du chargement du rapport');

@@ -11,7 +11,8 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 import io
 
-from app.database import get_db, Product, StockEntry, StockExit, StockMovement
+from app.database import get_db, Product, StockEntry, StockExit, StockMovement, StockEntryItem
+from app.database import StockExitItem
 from app.schemas import User, StockReport, PeriodReport
 from app.routers.auth import get_current_active_user
 
@@ -33,15 +34,15 @@ def get_stock_summary(
     for product in products:
         # Calculer les totaux d'entrées
         entries_query = db.query(
-            func.sum(StockEntry.qte_kg).label('total_kg'),
-            func.sum(StockEntry.qte_cartons).label('total_cartons')
-        ).filter(StockEntry.product_id == product.id)
+            func.sum(StockEntryItem.qte_kg).label('total_kg'),
+            func.sum(StockEntryItem.qte_cartons).label('total_cartons')
+        ).join(StockEntry, StockEntryItem.entry_id == StockEntry.id).filter(StockEntryItem.product_id == product.id)
         
         # Calculer les totaux de sorties
         exits_query = db.query(
-            func.sum(StockExit.qte_kg).label('total_kg'),
-            func.sum(StockExit.qte_cartons).label('total_cartons')
-        ).filter(StockExit.product_id == product.id)
+            func.sum(StockExitItem.qte_kg).label('total_kg'),
+            func.sum(StockExitItem.qte_cartons).label('total_cartons')
+        ).join(StockExit, StockExitItem.exit_id == StockExit.id).filter(StockExitItem.product_id == product.id)
         
         # Appliquer les filtres de date si fournis
         if date_debut and date_fin:
