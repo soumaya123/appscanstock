@@ -89,6 +89,8 @@ function StockInTable({
           date_peremption: toIsoDate(item.expirationDate),
           remarque: item.remarks || null,
         }));
+          console.log('Entrées de stock créées en batch:', items);
+          console.log('Base:', base);
 
       if (items.length === 0) return;
 
@@ -96,6 +98,7 @@ function StockInTable({
       if (items.length > 1) {
         try {
           await stockEntryService.createBatch({ ...base, items });
+        
         } catch (batchErr) {
           // fallback: créer individuellement
           for (const payload of items.map((it) => ({ ...base, ...it }))) {
