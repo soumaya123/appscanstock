@@ -149,6 +149,21 @@ class StockExitBase(BaseModel):
 class StockExitCreate(StockExitBase):
     pass
 
+class StockExitItemInput(BaseModel):
+    product_id: int
+    qte_kg: float = 0.0
+    qte_cartons: int = 0
+    date_peremption: Optional[datetime] = None
+    remarque: Optional[str] = None
+
+class StockExitCreateFlexible(BaseModel):
+    date_sortie: datetime
+    num_facture: Optional[str] = None
+    type_sortie: str
+    remarque: Optional[str] = None
+    prix_vente: Optional[float] = None
+    items: List[StockExitItemInput]
+
 class StockExitUpdate(BaseModel):
     date_sortie: Optional[datetime] = None
     num_facture: Optional[str] = None

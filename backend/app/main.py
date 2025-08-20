@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from app.database import engine, Base
-from app.routers import auth, products, stock_entries, stock_exits, reports, adjustments, maintenance
+from app.routers import auth, products, stock_entries, stock_exits, reports, adjustments, maintenance, mobile
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -55,6 +55,7 @@ app.include_router(stock_exits.router, prefix="/api/stock-exits", tags=["Stock E
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(adjustments.router, prefix="/api/adjustments", tags=["Stock Adjustments"])
 app.include_router(maintenance.router, prefix="/api/maintenance", tags=["Maintenance"])
+app.include_router(mobile.router, prefix="/api/mobile", tags=["Mobile APIs"])
 
 @app.get("/")
 async def root():
