@@ -406,4 +406,25 @@ def download_stock_reception_pdf(
         filename=f"bon_entree_{num_reception}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     )
 
-#
+@router.get("/export-data")
+def export_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Exporter les données de stock en JSON."""
+    try:
+        # Récupérer les produits et leurs stocks
+        products = db.query(Product).all()
+        data = []
+        for product in products:
+            data.append({
+                "code_produit": product.code_produit,
+                "nom_produit": product.nom_produit,
+                "stock_actuel_kg": product.stock_actuel_kg,
+                "stock_actuel_cartons": product.stock_actuel_cartons,
+                "prix_achat": product.prix_achat,
+                "seuil_alerte": product.seuil_alerte
+            })
+        return {"status": "success", "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'exportation des données: {str(e)}")

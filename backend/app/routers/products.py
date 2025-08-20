@@ -151,3 +151,21 @@ def get_low_stock_products(
         (Product.stock_actuel_cartons <= Product.seuil_alerte)
     ).all()
     return products
+
+@router.get("/mobile/products", response_model=List[ProductSchema])
+def get_products_mobile(
+    db: Session = Depends(get_db)
+):
+    """Obtenir tous les produits sans authentification pour mobile."""
+    return db.query(Product).all()
+
+@router.get("/mobile/products/{product_id}", response_model=ProductSchema)
+def get_product_by_id_mobile(
+    product_id: int,
+    db: Session = Depends(get_db)
+):
+    """Obtenir un produit par ID sans authentification pour mobile."""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product

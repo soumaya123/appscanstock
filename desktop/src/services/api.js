@@ -409,5 +409,15 @@ export const adjustmentService = {
   },
 };
 
+export async function fetchExportData() {
+  try {
+    const response = await apiClient.get('/reports/export-data');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching export data:', error);
+    throw error;
+  }
+}
+
 // Export par défaut du client API
 export default apiClient;

@@ -17,6 +17,7 @@ import {
   ExitToApp as LogoutIcon,
   Notifications as NotificationsIcon,
   DeleteForever as DeleteForeverIcon,
+  Usb as UsbIcon,
 } from '@mui/icons-material';
 import apiClient, { authService } from '../../services/api';
 
@@ -45,6 +46,37 @@ function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
         alert(`Erreur: ${e.response.data.detail}`);
       } else {
         alert('Erreur lors de la purge des transactions.');
+      }
+    }
+  };
+
+  const handleUsbSync = async () => {
+    try {
+      // Vérifiez si l'URL est correcte
+      console.log("Tentative de récupération des données depuis /export-data...");
+      const response = await apiClient.get('/reports/export-data');
+      const data = response.data;
+
+      // Créer un fichier JSON à télécharger
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'data.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      URL.revokeObjectURL(url);
+
+      alert("✅ Données exportées ! Transférez le fichier 'data.json' sur le mobile.");
+    } catch (error) {
+      console.error("Erreur lors de l'export USB :", error);
+      if (error.response && error.response.status === 404) {
+        alert("❌ L'endpoint '/export-data' est introuvable. Veuillez vérifier la configuration du backend.");
+      } else {
+        alert("Impossible d'exporter les données. Veuillez réessayer plus tard.");
       }
     }
   };
@@ -159,6 +191,10 @@ function Header({ sidebarOpen, onToggleSidebar, drawerWidth }) {
             <MenuItem onClick={handleLogout}>
               <LogoutIcon sx={{ mr: 1 }} fontSize="small" />
               Déconnexion
+            </MenuItem>
+            <MenuItem onClick={handleUsbSync}>
+              <UsbIcon sx={{ mr: 1 }} fontSize="small" />
+              Charger via USB
             </MenuItem>
           </Menu>
         </Box>

@@ -371,3 +371,48 @@ def get_entries_by_product(
     )
     rows = q.all()
     return [serialize_entry_item(item, header) for (item, header) in rows]
+
+
+@router.post("/mobile/stock-entries/batch")
+def add_multiple_stock_entries(
+    payload: List[StockEntryBatchCreate],
+    db: Session = Depends(get_db)
+):
+    """Ajouter plusieurs entrées de stock en une seule requête sans authentification pour mobile."""
+    all_created_items = []
+
+    for entry in payload:
+        if not entry.items:
+            raise HTTPException(status_code=400, detail="'items' cannot be empty")
+
+        header = StockEntry(
+            date_reception=entry.date_reception,
+            num_reception=entry.num_reception,
+            num_reception_carnet=entry.num_reception_carnet,
+            num_facture=entry.num_facture,
+            num_packing_liste=entry.num_packing_liste,
+            created_by=0  # Default value for mobile entries
+        )
+        db.add(header)
+        db.commit()
+        db.refresh(header)
+
+        created_items = []
+        for it in entry.items:
+            item = StockEntryItem(
+                entry_id=header.id,
+                product_id=it.product_id,
+                qte_kg=it.qte_kg,
+                qte_cartons=it.qte_cartons,
+                date_peremption=it.date_peremption,
+                remarque=it.remarque,
+            )
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+
+            created_items.append(item)
+
+        all_created_items.extend(created_items)
+
+    return all_created_items
