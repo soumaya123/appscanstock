@@ -18,20 +18,28 @@ from app.routers.auth import get_current_active_user
 router = APIRouter()
 
 
+class StockEntryBatchCreate(BaseModel):
+    date_reception: datetime
+    num_reception: str
+    num_reception_carnet: Optional[str] = None
+    num_facture: Optional[str] = None
+    num_packing_liste: Optional[str] = None
+    remarque: Optional[str] = None  # Added here
+    items: List[StockEntryItemSchema]
+
+
 class StockEntryCreateFlexible(BaseModel):
     date_reception: datetime
     num_reception: str
     num_reception_carnet: Optional[str] = None
     num_facture: Optional[str] = None
     num_packing_liste: Optional[str] = None
-    # Option A: items (préféré)
+    remarque: Optional[str] = None  # Added here
     items: Optional[List[StockEntryItemSchema]] = None
-    # Option B: ligne unique (rétrocompat)
     product_id: Optional[int] = None
     qte_kg: Optional[float] = 0.0
     qte_cartons: Optional[int] = 0
     date_peremption: Optional[datetime] = None
-    remarque: Optional[str] = None
 
 
 # Utilitaires
@@ -115,6 +123,7 @@ def create_stock_entries_batch(
         num_facture=payload.num_facture,
         num_packing_liste=payload.num_packing_liste,
         created_by=current_user.id,
+        remarque=payload.remarque,
     )
     db.add(header)
     db.commit()
@@ -171,13 +180,14 @@ def create_stock_entry(
             num_reception_carnet=entry.num_reception_carnet,
             num_facture=entry.num_facture,
             num_packing_liste=entry.num_packing_liste,
+            remarque=entry.remarque,
             items=entry.items,
         )
         return create_stock_entries_batch(batch_payload, db, current_user)  # type: ignore
 
     # Cas rétrocompat: une seule ligne
-    if entry.product_id is None:
-        raise HTTPException(status_code=400, detail="product_id is required when no items are provided")
+    # if entry.product_id is None:
+    #     raise HTTPException(status_code=400, detail="product_id is required when no items are provided")
 
     # Créer l'entête
     header = StockEntry(
@@ -186,6 +196,7 @@ def create_stock_entry(
         num_reception_carnet=entry.num_reception_carnet,
         num_facture=entry.num_facture,
         num_packing_liste=entry.num_packing_liste,
+        remarque=entry.remarque,
         created_by=current_user.id,
     )
     db.add(header)
@@ -252,7 +263,13 @@ def read_stock_entries(
         q = q.filter(StockEntry.num_reception.ilike(f"%{num_reception}%"))
 
     rows = q.offset(skip).limit(limit).all()
-    return [serialize_entry_item(item, header) for (item, header) in rows]
+    return [
+        {
+            **serialize_entry_item(item, header),
+            "remarque": header.remarque  # Include remarque in the response
+        }
+        for (item, header) in rows
+    ]
 
 
 @router.get("/{entry_id}", response_model=StockEntrySchema)

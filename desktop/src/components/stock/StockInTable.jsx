@@ -78,6 +78,7 @@ function StockInTable({
         num_reception_carnet: data.carnetNumber || null,
         num_facture: data.invoiceNumber || null,
         num_packing_liste: data.packingListNumber || null,
+        remarque: data.remarque || null,
       };
 
       const items = (data.items || [])
@@ -126,7 +127,7 @@ function StockInTable({
     if (selected.length === filteredList.length) setSelected([]);
     else setSelected(filteredList.map(e => e.num_reception));
   };
-
+  //console.log('selected=', currentReception);
   const printReception = async (numReception) => {
     try {
       const response = await apiClient.get('/reports/pdf/stock-reception', {
@@ -169,7 +170,6 @@ function StockInTable({
         <td style="text-align:right">${fmtKg(it.qte_kg)}</td>
         <td style="text-align:right">${fmtInt(it.qte_cartons)}</td>
         <td>${it.date_peremption ? fmtDate(it.date_peremption) : '-'}</td>
-        <td>${it.remarque ? String(it.remarque).replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''}</td>
       </tr>
     `).join('');
     return `
@@ -191,7 +191,7 @@ function StockInTable({
               <th style="text-align:right">Quantité (kg)</th>
               <th style="text-align:right">Quantité (cartons)</th>
               <th>Date Péremption</th>
-              <th>Remarque</th>
+            
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -310,6 +310,7 @@ ${sections}
         num_facture: e.num_facture,
         num_packing_liste: e.num_packing_liste,
         num_reception_carnet: e.num_reception_carnet,
+        remarque: e.remarque,
         items: [],
         total_kg: 0,
         total_cartons: 0,
@@ -424,6 +425,7 @@ ${sections}
               </TableHead>
               <TableBody>
                 {display.map((r) => (
+
                 <TableRow
                 key={r.num_reception}
                 hover
@@ -452,7 +454,11 @@ ${sections}
                 <TableCell align="right">{r.total_cartons}</TableCell>
                 <TableCell align="center">
                 <Tooltip title="Détails">
-                <IconButton size="small" onClick={() => { setCurrentReception(r); setDetailOpen(true); }}>
+                <IconButton size="small" onClick={() => {
+                  console.log('Voir détails', { ...r, remarque: r.remarque }); // Ensure remarque is logged
+                  setCurrentReception(r);
+                  setDetailOpen(true);
+                }}>
                 <ViewIcon fontSize="small" />
                 </IconButton>
                 </Tooltip>
@@ -507,6 +513,7 @@ ${sections}
             <Typography>Numéro Carnet: {currentReception?.num_reception_carnet || '-'}</Typography>
             <Typography>Nombre d'articles: {currentReception?.items?.length || 0}</Typography>
             <Typography>Total: {currentReception?.total_kg || 0} kg / {currentReception?.total_cartons || 0} cartons</Typography>
+            <Typography>Remarque: {currentReception?.remarque || '-'}</Typography>
           </Box>
           <Table size="small">
             <TableHead>
@@ -516,7 +523,7 @@ ${sections}
                 <TableCell align="right">Quantité (kg)</TableCell>
                 <TableCell align="right">Quantité (cartons)</TableCell>
                 <TableCell>Date Péremption</TableCell>
-                <TableCell>Remarque</TableCell>
+                {/* <TableCell>Remarque</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -527,7 +534,7 @@ ${sections}
                   <TableCell align="right">{it.qte_kg}</TableCell>
                   <TableCell align="right">{it.qte_cartons}</TableCell>
                   <TableCell>{it.date_peremption ? new Date(it.date_peremption).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>{it.remarque || ''}</TableCell>
+                  {/* <TableCell></TableCell> */}
                 </TableRow>
               ))}
             </TableBody>

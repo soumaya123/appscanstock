@@ -142,7 +142,7 @@ def get_product_movements(
     """Historique des mouvements pour un produit"""
     
     query = db.query(StockMovement).filter(StockMovement.product_id == product_id)
-    
+   
     if date_debut and date_fin:
         query = query.filter(
             and_(StockMovement.created_at >= date_debut, StockMovement.created_at <= date_fin)

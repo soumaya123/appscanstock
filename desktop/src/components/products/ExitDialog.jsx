@@ -60,8 +60,7 @@ function ExitDialog({
       quantityKg: 0,
       quantityCartons: 0,
       expirationDate: '',
-      salePrice: 0,
-      remarks: ''
+      salePrice: 0
     }];
     onChange?.({ ...exit, items: newItems });
   };
@@ -167,6 +166,17 @@ function ExitDialog({
                 required={['vente', 'depot_vente'].includes(exit.type)}
               />
             </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Remarque"
+                value={exit.remarks || ''}
+                onChange={(e) => onChange?.({ ...exit, remarks: e.target.value })}
+                placeholder="Ajoutez une remarque pour cette sortie"
+                disabled={loading}
+              />
+            </Grid>
           </Grid>
           <Box mb={3}>
             
@@ -193,8 +203,7 @@ function ExitDialog({
                         quantityKg: 0,
                         quantityCartons: 0,
                         expirationDate: '',
-                        salePrice: 0,
-                        remarks: ''
+                        salePrice: 0
                       }
                     ];
                     onChange?.({ ...exit, items: newItems });
@@ -223,7 +232,6 @@ function ExitDialog({
                   <TableCell>Quantité (cartons)</TableCell>
                   <TableCell>Date Péremption</TableCell>
                   {userRole === 'responsable' && <TableCell>Prix de Vente</TableCell>}
-                  <TableCell>Remarques</TableCell>
                   <TableCell align="center">Action</TableCell>
                 </TableRow>
               </TableHead>
@@ -277,17 +285,10 @@ function ExitDialog({
                         />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <TextField
-                        value={item.remarks || ''} size="small"
-                        onChange={(e) => handleItemChange(index, 'remarks', e.target.value)}
-                        disabled={loading}
-                      />
-                    </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Supprimer">
-                        <IconButton color="error" size="small" onClick={() => handleRemoveItem(index)} disabled={loading}>
-                          <DeleteIcon fontSize="small" />
+                        <IconButton onClick={() => handleRemoveItem(index)} disabled={loading}>
+                          <DeleteIcon color="error" />
                         </IconButton>
                       </Tooltip>
                     </TableCell>

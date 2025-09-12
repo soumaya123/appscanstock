@@ -152,7 +152,6 @@ def create_stock_exit(
                 qte_kg=it.qte_kg,
                 qte_cartons=it.qte_cartons,
                 date_peremption=it.date_peremption,
-                remarque=it.remarque,
             )
             db.add(item)
             db.commit()
@@ -201,7 +200,6 @@ def create_stock_exit(
         qte_kg=float(payload.qte_kg or 0.0),
         qte_cartons=int(payload.qte_cartons or 0),
         date_peremption=payload.date_peremption,
-        remarque=payload.remarque,
     )
     db.add(item)
     db.commit()
@@ -254,7 +252,13 @@ def read_stock_exits(
         q = q.filter(StockExit.num_facture.ilike(f"%{num_facture}%"))
 
     rows = q.offset(skip).limit(limit).all()
-    return [serialize_exit_item(item, header) for (item, header) in rows]
+    return [
+        {
+            **serialize_exit_item(item, header),
+            "remarque": header.remarque  # Include remarque in the response
+        }
+        for (item, header) in rows
+    ]
 
 
 @router.get("/{exit_id}", response_model=StockExitSchema)
@@ -381,64 +385,3 @@ def get_exits_by_type(
     q = db.query(StockExitItem, StockExit).join(StockExit, StockExitItem.exit_id == StockExit.id).filter(StockExit.type_sortie == type_sortie)
     rows = q.all()
     return [serialize_exit_item(item, header) for (item, header) in rows]
-
-
-@router.post("/mobile/stock-exits/batch")
-def add_multiple_stock_exits(
-    payload: List[StockExitCreateFlexible],
-    db: Session = Depends(get_db)
-):
-    """Ajouter plusieurs sorties de stock en une seule requête sans authentification pour mobile."""
-    all_created_items = []
-
-    for exit_entry in payload:
-        if not exit_entry.items:
-            raise HTTPException(status_code=400, detail="'items' cannot be empty")
-
-        header = StockExit(
-            date_sortie=exit_entry.date_sortie,
-            num_facture=exit_entry.num_facture,
-            type_sortie=exit_entry.type_sortie,
-            remarque=exit_entry.remarque,
-            prix_vente=exit_entry.prix_vente,
-            created_by=0  # Default value for mobile entries
-        )
-        db.add(header)
-        db.commit()
-        db.refresh(header)
-
-        created_items = []
-        for it in exit_entry.items:
-            product = db.query(Product).filter(Product.id == it.product_id).first()
-            if product is None:
-                raise HTTPException(status_code=404, detail=f"Product not found: {it.product_id}")
-
-            # Ensure stock availability
-            if product.stock_actuel_kg < it.qte_kg or product.stock_actuel_cartons < it.qte_cartons:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Insufficient stock for product {it.product_id}. Available: {product.stock_actuel_kg} kg, {product.stock_actuel_cartons} cartons. Requested: {it.qte_kg} kg, {it.qte_cartons} cartons."
-                )
-
-            # Deduct stock
-            product.stock_actuel_kg -= it.qte_kg
-            product.stock_actuel_cartons -= it.qte_cartons
-            db.commit()
-
-            item = StockExitItem(
-                exit_id=header.id,
-                product_id=it.product_id,
-                qte_kg=it.qte_kg,
-                qte_cartons=it.qte_cartons,
-                date_peremption=it.date_peremption,
-                remarque=it.remarque,
-            )
-            db.add(item)
-            db.commit()
-            db.refresh(item)
-
-            created_items.append(item)
-
-        all_created_items.extend(created_items)
-
-    return all_created_items

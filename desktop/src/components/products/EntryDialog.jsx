@@ -147,6 +147,16 @@ function EntryDialog({
                 placeholder="PL-001" disabled={loading}
               />
             </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Remarque"
+                value={entry.remarks || ''}
+                onChange={(e) => onChange?.({ ...entry, remarks: e.target.value })}
+                placeholder="Ajoutez une remarque pour cette réception"
+                disabled={loading}
+              />
+            </Grid>
             <Grid item xs={6} sm={6}>
               <Box display="flex" alignItems="center" gap={1}>
                 <TextField
@@ -301,7 +311,6 @@ function EntryDialog({
                   <TableCell>Quantité (kg)</TableCell>
                   <TableCell>Quantité (cartons)</TableCell>
                   <TableCell>Date Péremption</TableCell>
-                  <TableCell>Remarques</TableCell>
                   <TableCell align="center">Action</TableCell>
                 </TableRow>
               </TableHead>
@@ -340,12 +349,6 @@ function EntryDialog({
                       <TextField type="date" value={item.expirationDate || ''} size="small"
                         onChange={(e) => handleItemChange(index, 'expirationDate', e.target.value)}
                         InputLabelProps={{ shrink:true }} disabled={loading}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField value={item.remarks || ''} size="small"
-                        onChange={(e) => handleItemChange(index, 'remarks', e.target.value)}
-                        disabled={loading}
                       />
                     </TableCell>
                     <TableCell align="center">

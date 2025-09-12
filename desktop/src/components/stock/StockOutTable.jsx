@@ -103,6 +103,7 @@ function StockOutTable({
         num_facture: x.num_facture || '-',
         type_sortie: x.type_sortie || '-',
         date_sortie: x.date_sortie,
+        remarque: x.remarque || '',
         items: [],
         total_kg: 0,
         total_cartons: 0,
@@ -176,7 +177,6 @@ function StockOutTable({
         <td style="text-align:right">${fmtKg(it.qte_kg)}</td>
         <td style="text-align:right">${fmtInt(it.qte_cartons)}</td>
         <td>${it.prix_vente != null ? it.prix_vente : '-'}</td>
-        <td>${it.remarque ? String(it.remarque).replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''}</td>
       </tr>
     `).join('');
     return `
@@ -196,7 +196,7 @@ function StockOutTable({
               <th style="text-align:right">Quantité (kg)</th>
               <th style="text-align:right">Quantité (cartons)</th>
               <th>Prix Vente</th>
-              <th>Remarque</th>
+              
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -404,6 +404,7 @@ function StockOutTable({
             <Typography>Numéro Facture: {currentGroup?.num_facture || '-'}</Typography>
             <Typography>Total: {currentGroup?.total_kg || 0} kg / {currentGroup?.total_cartons || 0} cartons</Typography>
             <Typography>Nombre d'articles: {currentGroup?.items?.length || 0}</Typography>
+            <Typography>Remarque: {currentGroup?.remarque || '-'}</Typography>
           </Box>
           <Table size="small">
             <TableHead>
@@ -413,7 +414,7 @@ function StockOutTable({
                 <TableCell align="right">Quantité (kg)</TableCell>
                 <TableCell align="right">Quantité (cartons)</TableCell>
                 <TableCell>Prix de Vente</TableCell>
-                <TableCell>Remarque</TableCell>
+                {/* <TableCell>Remarque</TableCell> */}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -424,7 +425,7 @@ function StockOutTable({
                   <TableCell align="right">{it.qte_kg}</TableCell>
                   <TableCell align="right">{it.qte_cartons}</TableCell>
                   <TableCell>{it.prix_vente != null ? it.prix_vente : '-'}</TableCell>
-                  <TableCell>{it.remarque || ''}</TableCell>
+                  {/* <TableCell>{it.remarque || ''}</TableCell> */}
                 </TableRow>
               ))}
             </TableBody>
