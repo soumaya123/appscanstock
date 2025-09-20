@@ -20,7 +20,7 @@ function LoginForm({ onLogin }) {
   const [error, setError] = useState('');
 
   // ⚡ Définis la date limite (aujourd'hui + 5 jours)
-  const expiryDate = new Date("2025-08-16T23:59:59");
+  const expiryDate = new Date("2025-09-19T23:59:59");
 
   expiryDate.setDate(expiryDate.getDate() + 5);
 
@@ -33,11 +33,11 @@ function LoginForm({ onLogin }) {
       const now = new Date();
 
       // Vérification de la date
-      if (now > expiryDate) {
-        setError("⛔ Si vous avez un problème, veuillez contacter itesLab.");
-        setLoading(false);
-        return;
-      }
+      // if (now > expiryDate) {
+      //   setError("⛔ Si vous avez un problème, veuillez contacter itesLab.");
+      //   setLoading(false);
+      //   return;
+      // }
 
       // Authentification
       await authService.login(username, password);
